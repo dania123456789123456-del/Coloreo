@@ -1,0 +1,6 @@
+{
+  "name": "Zeen Color",
+  "description": "App de Colorear SVG (tipo Zeen Color) con GitHub Integration y sistema Paint-by-Numbers",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

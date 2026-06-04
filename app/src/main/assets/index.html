@@ -1,0 +1,1987 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Zeen Color SVG</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0f3ff',
+              100: '#e0e7ff',
+              200: '#c7d2fe',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+              900: '#312e81',
+            }
+          },
+          animation: {
+            'pulse-glow': 'pulseGlow 2s infinite ease-in-out',
+            'bounce-subtle': 'bounceSubtle 1.5s infinite ease-in-out',
+          },
+          keyframes: {
+            pulseGlow: {
+              '0%, 100%': { transform: 'scale(1)', filter: 'drop-shadow(0 0 2px rgba(99, 102, 241, 0.4))' },
+              '50%': { transform: 'scale(1.1)', filter: 'drop-shadow(0 0 10px rgba(99, 102, 241, 1))' },
+            },
+            bounceSubtle: {
+              '0%, 100%': { transform: 'translateY(0)' },
+              '50%': { transform: 'translateY(-3px)' },
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Styling for native look and touch targets */
+    body {
+      touch-action: none; /* Prevents default browser zooming/panning to let us handle it */
+      -webkit-user-select: none;
+      user-select: none;
+      background-color: #0b0f19;
+      color: #e2e8f0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    }
+    
+    /* Scroll bars custom styling */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+
+    /* Core Paint Styles */
+    .zone-active {
+      pointer-events: all !important;
+      cursor: crosshair;
+      transition: fill 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .zone-active:hover {
+      filter: brightness(1.1) contrast(1.1);
+      stroke: #ffffff !important;
+      stroke-width: 3px !important;
+    }
+    .zone-locked {
+      pointer-events: none !important;
+      cursor: not-allowed;
+      opacity: 0.35;
+      transition: opacity 0.2s ease;
+    }
+    .zone-editor-active {
+      pointer-events: all !important;
+      cursor: pointer;
+    }
+    .zone-editor-active:hover {
+      stroke: #fbbf24 !important;
+      stroke-width: 4px !important;
+    }
+
+    /* Glow overlays for Paint-by-groups */
+    .circle-glow {
+      box-shadow: 0 0 12px currentColor;
+    }
+  </style>
+</head>
+<body class="h-screen w-screen overflow-hidden flex flex-col">
+
+  <!-- Header -->
+  <header class="bg-slate-900 border-b border-slate-800 px-4 py-3 flex items-center justify-between z-10 shrink-0">
+    <div class="flex items-center gap-3">
+      <button onclick="toggleSidebar(true)" class="p-2 hover:bg-slate-800 rounded-xl text-slate-300 transition active:scale-95" title="Abrir Galería y Ajustes">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+      </button>
+      <div>
+        <h1 class="text-base font-bold bg-gradient-to-r from-teal-400 to-indigo-400 bg-clip-text text-transparent">Zeen Color</h1>
+        <p id="current-image-title-banner" class="text-[10px] text-slate-400 truncate max-w-[150px] sm:max-w-[300px]">Cargando dibujo...</p>
+      </div>
+    </div>
+
+    <!-- Active mode badge -->
+    <div class="flex items-center gap-2">
+      <!-- Mode toggle badge -->
+      <span id="paint-mode-badge" class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 flex items-center gap-1">
+        <span class="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse"></span>
+        Modo Pintar
+      </span>
+      <span id="editor-mode-badge" class="hidden px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+        <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+        Editor de Zonas
+      </span>
+
+      <!-- Helper tooltips -->
+      <button onclick="toggleInstructionsModal(true)" class="p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-lg pr-1">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Canvas View Area -->
+  <main class="flex-1 relative bg-[#0e1322] flex items-center justify-center overflow-hidden">
+    <!-- Overlay loader indicator -->
+    <div id="loading-spinner" class="absolute z-20 inset-0 flex flex-col gap-3 items-center justify-center bg-slate-950/80 transition-opacity duration-300 opacity-0 pointer-events-none">
+      <div class="w-12 h-12 rounded-full border-4 border-slate-700 border-t-indigo-500 animate-spin"></div>
+      <p class="text-slate-400 text-sm font-medium">Sincronizando dibujos...</p>
+    </div>
+
+    <!-- Instructions banner if empty -->
+    <div id="empty-state-view" class="hidden absolute z-10 inset-0 flex flex-col items-center justify-center p-6 text-center max-w-md mx-auto">
+      <div class="p-4 bg-slate-800/50 rounded-full text-indigo-400 mb-4 border border-slate-700">
+        <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="2" y1="12" x2="4" y2="12"/></svg>
+      </div>
+      <h3 class="text-lg font-bold text-slate-100">Sin Dibujos Cargados</h3>
+      <p class="text-sm text-slate-400 mt-2">Configura un repositorio GitHub en el menú lateral o carga un archivo SVG y JSON locales de forma inmediata.</p>
+      <button onclick="toggleSidebar(true)" class="mt-5 px-4 py-2 bg-indigo-600 hover:bg-brand-500 active:scale-95 text-xs text-white font-semibold rounded-xl shadow-lg transition">
+        Abrir Configuraciones
+      </button>
+    </div>
+
+    <!-- Active Zoom-Pan drawing frame wrapper -->
+    <div id="zoom-pan-viewport" class="w-full h-full relative cursor-grab flex items-center justify-center" style="touch-action: none;">
+      <div id="zoom-pan-content" class="origin-top-left transition-transform duration-75 ease-out select-none" style="transform: translate(0px, 0px) scale(1);">
+        
+        <!-- Interactive Drawing Container -->
+        <div id="drawing-scale-wrapper" class="relative inline-block border border-slate-800 shadow-2xl rounded-2xl overflow-hidden bg-white">
+          <!-- Real SVG vector layer -->
+          <div id="svg-rendering-container" class="w-full h-full [&>svg]:block [&>svg]:w-full [&>svg]:h-full select-none">
+            <!-- Will be dynamically populated with inline SVG content -->
+          </div>
+
+          <!-- Superimposed visual Numbers layer -->
+          <svg id="numbers-overlay-layer" class="absolute inset-0 w-full h-full pointer-events-none select-none" style="display: block;">
+            <!-- Rendered numbers circles + values dynamically -->
+          </svg>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Floating canvas utilities -->
+    <div class="absolute bottom-4 left-4 flex flex-col gap-2 z-10 shrink-0">
+      <!-- Zoom reset -->
+      <button onclick="resetZoomPan()" class="p-2.5 bg-slate-900/90 hover:bg-slate-800 text-slate-300 border border-slate-700/80 rounded-xl shadow-lg transition active:scale-95 flex items-center justify-center" title="Reajustar Zoom">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+      </button>
+      <!-- Zoom In -->
+      <button onclick="zoomStep(0.15)" class="p-2.5 bg-slate-900/90 hover:bg-slate-800 text-slate-300 border border-slate-700/80 rounded-xl shadow-lg transition active:scale-95 flex items-center justify-center" title="Aumentar Zoom">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></svg>
+      </button>
+      <!-- Zoom Out -->
+      <button onclick="zoomStep(-0.15)" class="p-2.5 bg-slate-900/90 hover:bg-slate-800 text-slate-300 border border-slate-700/80 rounded-xl shadow-lg transition active:scale-95 flex items-center justify-center" title="Disminuir Zoom">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></svg>
+      </button>
+    </div>
+
+    <!-- Floating settings triggers -->
+    <div class="absolute bottom-4 right-4 flex flex-col gap-2 z-10 shrink-0">
+      <!-- Toggle numbers Layer [123] -->
+      <button id="toggle-numbers-btn" onclick="toggleNumbersLayerVis()" class="px-3.5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-slate-100 font-bold border border-indigo-400/30 rounded-xl shadow-lg transition active:scale-95 flex items-center gap-1.5" title="Mostrar/Ocultar Números">
+        <span class="text-xs font-mono">123</span>
+        <svg id="icon-numbers-visible" class="w-4 h-4 inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+        <svg id="icon-numbers-hidden" class="w-4 h-4 hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" /></svg>
+      </button>
+
+      <!-- Toggle Classic Outline/Gray Mode -->
+      <button id="toggle-classic-outlines-btn" onclick="toggleClassicOutlineMode()" class="px-3 py-2.5 bg-slate-900/90 hover:bg-slate-800 text-slate-300 border border-slate-700/80 rounded-xl shadow-lg transition active:scale-95 flex items-center gap-1.5" title="Modo Solo Contornos">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12z"/></svg>
+        <span class="text-xs font-semibold">Modo Guía</span>
+      </button>
+    </div>
+  </main>
+
+  <!-- Painting toolbar and Action Controls -->
+  <section class="bg-slate-900 border-t border-slate-800 p-3 flex flex-col gap-3 shrink-0">
+    
+    <!-- Action buttons row -->
+    <div class="flex items-center justify-between gap-2 max-w-lg mx-auto w-full">
+      <div class="flex gap-2">
+        <button id="undo-btn" onclick="historyUndo()" disabled class="p-2 bg-slate-800/80 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed enabled:active:scale-95 border border-slate-700 text-slate-200 rounded-xl px-3 flex items-center gap-1 transition" title="Deshacer (Ctrl+Z)">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
+          <span class="text-xs font-semibold hidden sm:inline">Deshacer</span>
+        </button>
+
+        <button id="redo-btn" onclick="historyRedo()" disabled class="p-2 bg-slate-800/80 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed enabled:active:scale-95 border border-slate-700 text-slate-200 rounded-xl px-3 flex items-center gap-1 transition" title="Rehacer">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/></svg>
+          <span class="text-xs font-semibold hidden sm:inline">Rehacer</span>
+        </button>
+      </div>
+
+      <div class="flex gap-2">
+        <!-- Active Eraser -->
+        <button id="bucket-eraser-btn" onclick="activateColorEraser()" class="p-2 bg-slate-800/80 hover:bg-slate-700 border border-slate-700 text-slate-200 rounded-xl px-3 flex items-center gap-1 transition active:scale-95" title="Borrar zonas de color">
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+          <span class="text-xs font-semibold hidden sm:inline">Borrador</span>
+        </button>
+
+        <!-- Clear Drawing -->
+        <button onclick="confirmResetDrawing()" class="p-2 bg-rose-950/40 hover:bg-rose-900/50 border border-rose-800/40 text-rose-200 rounded-xl px-3 flex items-center gap-1 transition active:scale-95" title="Reiniciar dibujo completo">
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+          <span class="text-xs font-semibold">Reiniciar todo</span>
+        </button>
+      </div>
+
+      <!-- Export PNG cleaner -->
+      <button onclick="exportColDrawing()" class="p-2.5 bg-teal-600 hover:bg-teal-500 font-bold border border-teal-500/20 text-white rounded-xl px-4 flex items-center gap-1 transition active:scale-95 shadow-md" title="Descargar PNG limpio sin números">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <span class="text-xs font-bold">Exportar PNG</span>
+      </button>
+    </div>
+
+    <!-- Active Swatch Palette Selector -->
+    <div class="w-full flex flex-col gap-2 border-t border-slate-800/80 pt-2.5">
+      <div class="flex items-center justify-between text-xs text-slate-400 px-1">
+        <span class="font-bold uppercase tracking-wider text-[10px]">🎨 Selección de Paleta</span>
+        <span id="active-palette-name-hud" class="font-semibold text-slate-300">Piel / Cuerpo</span>
+      </div>
+
+      <!-- Touch-friendly horizontal grid palette items -->
+      <div id="palette-choices-root" class="flex gap-2 overflow-x-auto py-1 px-1 select-none scroll-smooth">
+        <!-- Dynically populated palette loops -->
+      </div>
+
+      <!-- Alternative Colors & Customize Colors options row -->
+      <div id="palette-alternatives-container" class="hidden flex-col gap-1.5 mt-1 border-t border-slate-800/50 pt-2">
+        <div class="flex items-center justify-between text-xs text-slate-450 px-1">
+          <span class="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Alternativas de Color</span>
+          <span class="text-[10px] text-slate-500">¿No te gusta el sugerido? Elige otro:</span>
+        </div>
+        <div class="flex items-center gap-2 px-1">
+          <!-- Dynamic alternative square list -->
+          <div id="palette-alternatives-root" class="flex items-center gap-2 overflow-x-auto py-0.5 max-w-[80%]">
+            <!-- Will inject suggested colors buttons -->
+          </div>
+          <!-- Custom color picker anchor -->
+          <div class="h-6 w-px bg-slate-800 mx-1 shrink-0"></div>
+          <div class="flex items-center gap-1 bg-slate-800 px-2 py-1 rounded-lg shrink-0 border border-slate-700 hover:bg-slate-700 transition">
+            <input type="color" id="custom-hex-picker" onchange="applyCustomAlternativeColor(this.value)" class="w-5 h-5 border-0 rounded cursor-pointer bg-transparent" />
+            <label for="custom-hex-picker" class="text-[9px] text-slate-300 cursor-pointer select-none font-bold">Libre</label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Sidebar Control Drawer -->
+  <aside id="sidebar-drawer" class="fixed inset-y-0 left-0 w-[85%] max-w-sm bg-slate-900 border-r border-slate-800 z-30 transform -translate-x-full transition-transform duration-300 ease-in-out flex flex-col shadow-2xl">
+    
+    <!-- Sidebar Header -->
+    <div class="p-4 bg-slate-950 border-b border-slate-850 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <div class="w-6 h-6 rounded-lg bg-indigo-500 flex items-center justify-center text-xs font-bold text-white shadow-md shadow-indigo-500/20">Z</div>
+        <h2 class="text-sm font-bold text-slate-200">Menú Zeen Color</h2>
+      </div>
+      <button onclick="toggleSidebar(false)" class="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-slate-200 transition">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+    </div>
+
+    <!-- Sidebar TABS selector -->
+    <div class="h-10 bg-slate-950 flex border-b border-slate-850 shrink-0 text-xs">
+      <button onclick="switchSidebarTab('gallery')" id="tab-btn-gallery" class="flex-1 font-bold border-b-2 border-indigo-500 text-slate-200 transition">Galería</button>
+      <button onclick="switchSidebarTab('github')" id="tab-btn-github" class="flex-1 font-bold border-b-2 border-transparent text-slate-450 hover:text-slate-200 transition">GitHub</button>
+      <button onclick="switchSidebarTab('editor')" id="tab-btn-editor" class="flex-1 font-bold border-b-2 border-transparent text-slate-450 hover:text-slate-200 transition">Editor Zonas</button>
+    </div>
+
+    <!-- Sidebar Scrollable Body Panels -->
+    <div class="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
+
+      <!-- PANEL GALLERY -->
+      <div id="side-panel-gallery" class="flex flex-col gap-4">
+        
+        <!-- Local uploads tool -->
+        <div class="p-3 bg-slate-850/50 rounded-xl border border-slate-800">
+          <h4 class="text-xs font-bold text-slate-300 flex items-center gap-1">
+            <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+            Carga Local desde el Dispositivo
+          </h4>
+          <p class="text-[10px] text-slate-400 mt-1">Sube archivos SVG + JSON de tu almacenamiento y píntalas de inmediato.</p>
+          
+          <div class="mt-3 flex gap-2">
+            <button onclick="document.getElementById('native-file-picker').click()" class="flex-1 py-2 bg-indigo-600/90 hover:bg-indigo-500 active:scale-95 text-[11px] font-bold text-white rounded-lg transition shadow">
+              Elegir Archivos...
+            </button>
+            <input type="file" id="native-file-picker" multiple accept=".svg,.json" onchange="handleNativeLocalFilesUpload(this.files)" class="hidden" />
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between mt-2">
+          <span class="text-xs font-bold text-slate-400 uppercase tracking-wider text-[10px]">Galería de Dibujos</span>
+          <span id="gallery-count-hud" class="text-[10px] bg-slate-800 text-slate-350 px-2 py-0.5 rounded-full font-bold">2 disponibles</span>
+        </div>
+
+        <!-- Render grid list of drawings -->
+        <div id="gallery-drawings-grid" class="grid grid-cols-2 gap-3">
+          <!-- Will render dynamic cards -->
+        </div>
+
+      </div>
+
+      <!-- PANEL GITHUB CONF -->
+      <div id="side-panel-github" class="hidden flex flex-col gap-4">
+        <div class="p-3 bg-slate-950 rounded-xl border border-slate-850">
+          <p class="text-[10px] text-slate-400 leading-relaxed">Configura un repositorio de GitHub público o privado para leer tus imágenes SVG automáticamente desde `/images` de tu rama activa.</p>
+        </div>
+
+        <div class="flex flex-col gap-3">
+          <!-- Github inputs -->
+          <div class="flex flex-col gap-1">
+            <label class="text-[10px] font-bold text-slate-400 uppercase">Usuario / Org</label>
+            <input type="text" id="gh-owner-input" placeholder="ej: octocat" class="w-full bg-slate-950 border border-slate-800 hover:border-slate-750 focus:border-indigo-500 rounded-lg px-3 py-1.5 text-xs text-slate-200 outline-none transition" />
+          </div>
+
+          <div class="flex flex-col gap-1">
+            <label class="text-[10px] font-bold text-slate-400 uppercase">Repositorio</label>
+            <input type="text" id="gh-repo-input" placeholder="ej: mi-repo-coloring" class="w-full bg-slate-950 border border-slate-800 hover:border-slate-750 focus:border-indigo-500 rounded-lg px-3 py-1.5 text-xs text-slate-200 outline-none transition" />
+          </div>
+
+          <div class="flex flex-col gap-1">
+            <label class="text-[10px] font-bold text-slate-400 uppercase">Rama (Branch)</label>
+            <input type="text" id="gh-branch-input" placeholder="ej: main" value="main" class="w-full bg-slate-950 border border-slate-800 hover:border-slate-750 focus:border-indigo-500 rounded-lg px-3 py-1.5 text-xs text-slate-200 outline-none transition" />
+          </div>
+
+          <div class="flex flex-col gap-1">
+            <label class="text-[10px] font-bold text-slate-400 uppercase flex items-center justify-between">
+              <span>Token Acceso Personal</span>
+              <span class="text-[8px] text-[indigo-300]">(Opcional / Privados)</span>
+            </label>
+            <input type="password" id="gh-token-input" placeholder="ghp_xxxxxxxxxxxx" class="w-full bg-slate-950 border border-slate-800 hover:border-slate-750 focus:border-indigo-500 rounded-lg px-3 py-1.5 text-xs text-slate-200 outline-none transition" />
+          </div>
+
+          <button onclick="saveAndSyncGitHubConfig()" class="w-full mt-2 py-2.5 bg-indigo-600 hover:bg-brand-500 text-xs font-bold text-white rounded-lg shadow-lg active:scale-95 transition">
+            Guardar y Sincronizar
+          </button>
+        </div>
+
+        <div class="mt-4 border-t border-slate-800 pt-4">
+          <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wide text-[10px] mb-2">Estructura del Repo requerida:</h3>
+          <div class="bg-slate-950 p-2.5 rounded-lg border border-slate-850 font-mono text-[9px] text-slate-400 leading-normal">
+            mi-repo-coloring/<br/>
+            └── images/<br/>
+            &nbsp;&nbsp;&nbsp;&nbsp;├── dibujo1.svg<br/>
+            &nbsp;&nbsp;&nbsp;&nbsp;├── dibujo1.json<br/>
+            &nbsp;&nbsp;&nbsp;&nbsp;├── flores.svg<br/>
+            &nbsp;&nbsp;&nbsp;&nbsp;└── flores.json<br/>
+          </div>
+        </div>
+      </div>
+
+      <!-- PANEL ZONE EDITOR / LABELER -->
+      <div id="side-panel-editor" class="hidden flex flex-col gap-4 select-none">
+        <div class="p-3 bg-amber-500/10 border border-amber-500/20 text-amber-200 rounded-xl leading-relaxed text-[10px]">
+          <p><strong>Modo Editor:</strong> Haz clic en cualquier trazo o path en el lienzo para etiquetarlo y estructurarlo como una zona coloreable numerada.</p>
+        </div>
+
+        <!-- Editor workflow activation toggle -->
+        <div class="flex items-center justify-between bg-slate-950 p-2.5 rounded-lg border border-slate-850 border-r border border-r-amber-500/50">
+          <span class="text-xs font-bold text-slate-350">Activar Modo Editor</span>
+          <button id="editor-active-toggle-btn" onclick="toggleActiveZoneEditorMode()" class="w-12 h-6 bg-slate-800 rounded-full p-0.5 transition shrink-0">
+            <span class="w-5 h-5 rounded-full bg-slate-400 block transition transform translate-x-0"></span>
+          </button>
+        </div>
+
+        <!-- Focused / Active editable item detail -->
+        <div id="editor-form-card" class="opacity-40 pointer-events-none flex flex-col gap-3 bg-slate-850/80 p-3.5 rounded-xl border border-slate-800 transition">
+          <div class="flex justify-between items-center">
+            <span class="text-[10px] font-mono text-amber-400 font-bold uppercase tracking-widest">Zona Seleccionada</span>
+            <span id="edit-focused-id" class="text-[10px] font-bold text-slate-400 truncate max-w-[120px]">Ninguna</span>
+          </div>
+
+          <div class="flex flex-col gap-1.5 mt-2">
+            <label class="text-[10px] font-semibold text-slate-400">Etiqueta (Ej: Cabello, Polo)</label>
+            <input type="text" id="edit-label-input" placeholder="escribe nombre de zona" class="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-slate-200 outline-none w-full" />
+          </div>
+
+          <div class="flex items-center gap-3">
+            <div class="flex-1 flex flex-col gap-1">
+              <label class="text-[10px] font-semibold text-slate-400">Número</label>
+              <input type="number" id="edit-number-input" min="1" max="99" class="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-slate-200 outline-none w-full text-center font-bold" />
+            </div>
+
+            <div class="flex-1 flex flex-col gap-1">
+              <label class="text-[10px] font-semibold text-slate-400">Color Base</label>
+              <div class="flex items-center gap-2 bg-slate-950 border border-slate-800 rounded-lg px-2 py-0.5">
+                <input type="color" id="edit-color-input" value="#cccccc" class="w-6 h-6 bg-transparent border-0 rounded cursor-pointer" />
+                <span id="edit-color-hex-hud" class="text-[9px] font-mono text-slate-400">#ccc</span>
+              </div>
+            </div>
+          </div>
+
+          <button onclick="commitZoneAssignment()" class="w-full mt-3 py-2 bg-amber-500 hover:bg-amber-400 active:scale-95 text-xs text-slate-950 font-extrabold rounded-lg transition shadow-lg shadow-amber-500/10">
+            Asignar Zona a Color
+          </button>
+        </div>
+
+        <!-- Generated Palettes Export Trigger -->
+        <div class="flex flex-col gap-2 mt-4 pt-4 border-t border-slate-800">
+          <h3 class="text-xs font-bold text-slate-300 flex items-center gap-1">
+            <svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+            Exportar Estructuras Creadas
+          </h3>
+          <p class="text-[9px] text-slate-400 leading-normal mb-2">Una vez hayas etiquetado todos los paths, descarga los archivos listos para usar o guardar en tu carpeta GitHub `images/`.</p>
+
+          <div class="grid grid-cols-2 gap-2">
+            <button onclick="exportModifiedSVG()" class="py-2.5 bg-slate-800 hover:bg-slate-700 text-[10px] font-bold text-slate-200 rounded-lg border border-slate-700 active:scale-95 transition">
+              Descargar SVG
+            </button>
+            <button onclick="exportGeneratedJSON()" class="py-2.5 bg-slate-800 hover:bg-slate-700 text-[10px] font-bold text-slate-200 rounded-lg border border-slate-700 active:scale-95 transition">
+              Descargar JSON
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </aside>
+
+  <!-- Instructional Backdrop modal overlay -->
+  <div id="backdrop-overlay" onclick="toggleSidebar(false)" class="fixed inset-0 bg-slate-950/60 z-20 hidden backdrop-blur-xs transition-opacity duration-300 opacity-0 pointer-events-none"></div>
+
+  <!-- Instructions Helper Modal -->
+  <div id="instructions-modal" class="fixed inset-0 z-40 bg-slate-950/70 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-sm overflow-hidden flex flex-col shadow-2xl animate-pulse-glow">
+      <div class="p-4 bg-slate-950 border-b border-slate-850 flex justify-between items-center">
+        <h3 class="text-sm font-bold text-slate-100 flex items-center gap-1.5">
+          <span class="text-indigo-400">&#9432;</span> ¿Cómo se juega?
+        </h3>
+        <button onclick="toggleInstructionsModal(false)" class="text-slate-400 hover:text-slate-200 transition">
+          &#10005;
+        </button>
+      </div>
+      <div class="p-5 text-xs text-slate-350 leading-relaxed flex flex-col gap-3">
+        <div class="flex gap-2.5">
+          <div class="h-5 w-5 bg-indigo-600 font-bold rounded-full text-white flex items-center justify-center shrink-0">1</div>
+          <p>Selecciona un <strong>número/color</strong> en la paleta de la parte inferior.</p>
+        </div>
+        <div class="flex gap-2.5">
+          <div class="h-5 w-5 bg-indigo-600 font-bold rounded-full text-white flex items-center justify-center shrink-0">2</div>
+          <p>Notarás que las zonas válidas del dibujo conservan su número, mientras que lo demás se opaca de forma bloqueada.</p>
+        </div>
+        <div class="flex gap-2.5">
+          <div class="h-5 w-5 bg-indigo-600 font-bold rounded-full text-white flex items-center justify-center shrink-0">3</div>
+          <p>Haz <strong>un toque o clic directo</strong> en la zona habilitada para pintarla a la perfección.</p>
+        </div>
+        <div class="flex gap-2.5">
+          <div class="h-5 w-5 bg-indigo-600 font-bold rounded-full text-white flex items-center justify-center shrink-0">4</div>
+          <p>Puedes cambiar el color por opciones alternativas, deshacer trazos, usar zoom, u ocultar la guía para un juego más desafiante.</p>
+        </div>
+      </div>
+      <div class="p-4 bg-slate-950 border-t border-slate-850 flex justify-end">
+        <button onclick="toggleInstructionsModal(false)" class="px-4 py-1.5 bg-indigo-600 hover:bg-brand-500 rounded-xl text-xs font-bold text-white transition active:scale-95">
+          ¡Entendido!
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- HTML Canvas for Exports (Hidden from viewport) -->
+  <canvas id="export-work-canvas" class="hidden"></canvas>
+
+
+  <!-- Javascript App Operations script -->
+  <script>
+    // PRE-PACKAGED DEMO DATA
+    const INITIAL_DEMO_DRAWINGS = {
+      "rocket_kawaii": {
+        name: "Cohete Espacial Kawaii",
+        svg: `<svg viewBox="0 0 500 500" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    path, circle, rect {
+      stroke: #0c1222;
+      stroke-width: 2.5;
+      stroke-linejoin: round;
+      stroke-linecap: round;
+      transition: fill 0.25s ease;
+    }
+  </style>
+  <path id="path_sky" d="M 10 10 L 490 10 L 490 490 L 10 490 Z" fill="#F5F5F5" />
+  <path id="path_moon" d="M 400 60 A 40 40 0 1 0 450 110 A 30 30 0 1 1 400 60" fill="#F5F5F5" />
+  <path id="path_star_1" d="M 100 85 L 105 100 L 120 100 L 108 110 L 112 125 L 100 115 L 88 125 L 92 110 L 80 100 L 95 100 Z" fill="#F5F5F5" />
+  <path id="path_star_2" d="M 380 400 L 383 410 L 395 410 L 385 417 L 388 428 L 380 420 L 372 428 L 375 417 Z" fill="#F5F5F5" />
+  <path id="path_rocket_body" d="M 250 100 C 290 180 300 280 290 350 L 210 350 C 200 280 210 180 250 100 Z" fill="#F5F5F5" />
+  <path id="path_wing_left" d="M 210 300 L 160 360 L 210 350 Z" fill="#F5F5F5" />
+  <path id="path_wing_right" d="M 290 300 L 340 360 L 290 350 Z" fill="#F5F5F5" />
+  <circle id="path_window" cx="250" cy="200" r="30" fill="#F5F5F5" />
+  <circle id="path_window_frame" cx="250" cy="200" r="40" fill="none" style="pointer-events: none;" />
+  <path id="path_rocket_tip" d="M 250 100 C 265 130 275 160 277 180 L 223 180 C 225 160 235 130 250 100 Z" fill="#F5F5F5" />
+  <rect id="path_engine" x="235" y="350" width="30" height="20" rx="5" fill="#F5F5F5" />
+  <path id="path_flames_mid" d="M 240 370 Q 250 440 250 440 Q 250 440 260 370 Z" fill="#F5F5F5" />
+  <path id="path_flames_left" d="M 235 370 Q 225 410 225 410 Q 235 400 240 370 Z" fill="#F5F5F5" />
+  <path id="path_flames_right" d="M 265 370 Q 275 410 275 410 Q 265 400 260 370 Z" fill="#F5F5F5" />
+</svg>`,
+        palette: {
+          imageId: "rocket_kawaii",
+          imageName: "Cohete Espacial Kawaii",
+          palette: [
+            {
+              colorId: "color_sky",
+              number: 1,
+              label: "Cielo",
+              suggestedHex: "#1a237e",
+              alternativeColors: ["#020617", "#1e1b4b", "#0d9488", "#0369a1"],
+              zones: ["path_sky"]
+            },
+            {
+              colorId: "color_rocket_body",
+              number: 2,
+              label: "Cuerpo",
+              suggestedHex: "#e2e8f0",
+              alternativeColors: ["#cbd5e1", "#ffedd5", "#f1f5f9", "#ff007f"],
+              zones: ["path_rocket_body"]
+            },
+            {
+              colorId: "color_wings",
+              number: 3,
+              label: "Detalles",
+              suggestedHex: "#e11d48",
+              alternativeColors: ["#f59e0b", "#10b981", "#8b5cf6", "#06b6d4"],
+              zones: ["path_wing_left", "path_wing_right", "path_rocket_tip"]
+            },
+            {
+              colorId: "color_window",
+              number: 4,
+              label: "Ventana",
+              suggestedHex: "#38bdf8",
+              alternativeColors: ["#a7f3d0", "#fde047", "#f472b6", "#a78bfa"],
+              zones: ["path_window"]
+            },
+            {
+              colorId: "color_moon_stars",
+              number: 5,
+              label: "Estrellas/Luna",
+              suggestedHex: "#facc15",
+              alternativeColors: ["#ea580c", "#fbbf24", "#fef08a", "#ffffff"],
+              zones: ["path_moon", "path_star_1", "path_star_2"]
+            },
+            {
+              colorId: "color_engine_fire",
+              number: 6,
+              label: "Motor/Fuego",
+              suggestedHex: "#f97316",
+              alternativeColors: ["#ef4444", "#fb923c", "#fcd34d", "#b45309"],
+              zones: ["path_engine", "path_flames_mid", "path_flames_left", "path_flames_right"]
+            }
+          ]
+        }
+      },
+      "cartoon_kitty": {
+        name: "Gatito Kawaii",
+        svg: `<svg viewBox="0 0 500 500" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    path, circle {
+      stroke: #0f172a;
+      stroke-width: 2.8;
+      stroke-linejoin: round;
+      stroke-linecap: round;
+      transition: fill 0.25s ease;
+    }
+  </style>
+  <path id="kitty_bg" d="M 15 15 L 485 15 L 485 485 L 15 485 Z" fill="#F5F5F5" />
+  <circle id="kitty_face_bg" cx="250" cy="270" r="140" fill="#F5F5F5" />
+  <path id="kitty_ear_l" d="M 130 180 L 110 50 L 210 140 Z" fill="#F5F5F5" />
+  <path id="kitty_ear_r" d="M 370 180 L 390 50 L 290 140 Z" fill="#F5F5F5" />
+  <path id="kitty_ear_inner_l" d="M 140 160 L 125 70 L 195 130 Z" fill="#F5F5F5" />
+  <path id="kitty_ear_inner_r" d="M 360 160 L 375 70 L 305 130 Z" fill="#F5F5F5" />
+  <path id="kitty_blush_l" d="M 145 285 A 25 15 0 1 0 195 285 A 25 15 0 1 0 145 285" fill="#F5F5F5" />
+  <path id="kitty_blush_r" d="M 305 285 A 25 15 0 1 0 355 285 A 25 15 0 1 0 305 285" fill="#F5F5F5" />
+  <circle id="kitty_eye_l" cx="190" cy="240" r="12" fill="#0f172a" style="pointer-events: none;" />
+  <circle id="kitty_eye_r" cx="310" cy="240" r="12" fill="#0f172a" style="pointer-events: none;" />
+  <path id="kitty_nose" d="M 240 260 L 260 260 L 250 270 Z" fill="#F5F5F5" />
+  <path id="kitty_mouth" d="M 235 280 Q 250 295 250 280 Q 250 295 265 280" fill="none" style="pointer-events: none; stroke-width: 3;" />
+  <path id="kitty_whiskers_l1" d="M 90 260 L 40 255" fill="none" style="pointer-events: none; stroke-width: 3;" />
+  <path id="kitty_whiskers_l2" d="M 90 280 L 35 282" fill="none" style="pointer-events: none; stroke-width: 3;" />
+  <path id="kitty_whiskers_r1" d="M 410 260 L 460 255" fill="none" style="pointer-events: none; stroke-width: 3;" />
+  <path id="kitty_whiskers_r2" d="M 410 280 L 465 282" fill="none" style="pointer-events: none; stroke-width: 3;" />
+  <path id="kitty_collar" d="M 170 380 Q 250 420 330 380 L 320 405 Q 250 445 180 405 Z" fill="#F5F5F5" />
+  <circle id="kitty_bell" cx="250" cy="425" r="22" fill="#F5F5F5" />
+</svg>`,
+        palette: {
+          imageId: "cartoon_kitty",
+          imageName: "Gatito Kawaii",
+          palette: [
+            {
+              colorId: "color_pink_ears",
+              number: 1,
+              label: "Nariz/Orejas",
+              suggestedHex: "#f472b6",
+              alternativeColors: ["#ec4899", "#f5d0fe", "#fda4af"],
+              zones: ["kitty_ear_inner_l", "kitty_ear_inner_r", "kitty_nose"]
+            },
+            {
+              colorId: "color_blush",
+              number: 2,
+              label: "Mejillas/Collar",
+              suggestedHex: "#fca5a5",
+              alternativeColors: ["#f87171", "#f9a8d4", "#fecdd3"],
+              zones: ["kitty_blush_l", "kitty_blush_r", "kitty_collar"]
+            },
+            {
+              colorId: "color_face",
+              number: 3,
+              label: "Gatito (Cuerpo)",
+              suggestedHex: "#ffffff",
+              alternativeColors: ["#fef08a", "#fed7aa", "#cbd5e1", "#ffffff"],
+              zones: ["kitty_face_bg", "kitty_ear_l", "kitty_ear_r"]
+            },
+            {
+              colorId: "color_bg",
+              number: 4,
+              label: "Fondo",
+              suggestedHex: "#a5f3fc",
+              alternativeColors: ["#ddd6fe", "#bfdbfe", "#fed7aa", "#fed7d7"],
+              zones: ["kitty_bg"]
+            },
+            {
+              colorId: "color_bell",
+              number: 5,
+              label: "Cascabel",
+              suggestedHex: "#fbbf24",
+              alternativeColors: ["#f59e0b", "#fef08a", "#fdba74"],
+              zones: ["kitty_bell"]
+            }
+          ]
+        }
+      }
+    };
+
+    // SYSTEM STATES
+    let currentImageId = "rocket_kawaii";
+    let activeColorIndex = -1; // -1 means none, or bucket eraser
+    let activeAlternateHex = ""; // user customize override
+    let paintNumbersVisible = true;
+    let classicOutlineModeEnabled = false;
+    let sidebarTabMode = "gallery";
+
+    // Edit zone state
+    let zoneEditorModeActive = false;
+    let focusedEditZonePathId = null;
+    let generatedPaletteAccumulator = { imageId: "", imageName: "", palette: [] };
+
+    // Coloring Progress Storage Setup
+    let appColoringProgress = {}; // format: { imageId: { pathId: hex } }
+    let cachedImages = {}; // format: { imageId: { name, svg, palette } }
+
+    // History undo/redo buffers per loaded image
+    let actionStateHistory = [];
+    let actionStatePointer = -1;
+
+    // Viewport Zoom/Pan properties
+    let zoomScale = 1;
+    let panX = 0;
+    let panY = 0;
+    let isPanningState = false;
+    let panStartX = 0;
+    let panStartY = 0;
+    let pinchStartDist = 0;
+
+    // GitHub Configurations state
+    let gitHubConfig = {
+      owner: "",
+      repo: "",
+      branch: "main",
+      token: ""
+    };
+
+
+    // INIT LOAD RUNNERS
+    window.addEventListener('DOMContentLoaded', () => {
+      loadLocalStorageState();
+      loadActiveImageInWorkspace(currentImageId);
+      initializeTouchGesturesEngine();
+      populateDrawingsGalleryGrid();
+      syncGitHubHUD();
+      toggleInstructionsModal(true); // Open details on first start
+    });
+
+    // STATE CONTROLLERS
+    function loadLocalStorageState() {
+      try {
+        const localDataString = localStorage.getItem('zeencolor_storage');
+        if (localDataString) {
+          const parsed = JSON.parse(localDataString);
+          if (parsed.githubConfig) gitHubConfig = parsed.githubConfig;
+          if (parsed.coloringProgress) appColoringProgress = parsed.coloringProgress;
+          if (parsed.cachedImages) {
+            cachedImages = parsed.cachedImages;
+          }
+        }
+      } catch (e) {
+        console.error("Local storage lookup triggered an entry skip: ", e);
+      }
+    }
+
+    function persistStateToLocalStorage() {
+      try {
+        const payload = {
+          githubConfig: gitHubConfig,
+          coloringProgress: appColoringProgress,
+          cachedImages: cachedImages
+        };
+        localStorage.setItem('zeencolor_storage', JSON.stringify(payload));
+      } catch (e) {
+        console.error("Fail writing coloring progress to local storage", e);
+      }
+    }
+
+
+    // GET SYSTEM WORK DRAWING CONTENT
+    function getActiveDrawingConfig(id) {
+      if (id === "rocket_kawaii" || id === "cartoon_kitty") {
+        return INITIAL_DEMO_DRAWINGS[id];
+      }
+      if (cachedImages[id]) {
+        return cachedImages[id];
+      }
+      return null;
+    }
+
+
+    // GRAPHICS LOAD CONTROLLER
+    function loadActiveImageInWorkspace(imageId) {
+      currentImageId = imageId;
+      const config = getActiveDrawingConfig(imageId);
+      if (!config) return;
+
+      // Resets
+      activeColorIndex = -1;
+      activeAlternateHex = "";
+      zoneEditorModeActive = false;
+      document.getElementById('editor-mode-badge').classList.add('hidden');
+      document.getElementById('paint-mode-badge').classList.remove('hidden');
+
+      // Sync Titles
+      document.getElementById('current-image-title-banner').textContent = config.name;
+
+      // Setup drawing view scale sizes
+      const container = document.getElementById('svg-rendering-container');
+      container.innerHTML = config.svg;
+
+      // Ensure inline SVG nodes have outline strokes and standard transition settings
+      const inlineSvg = container.querySelector('svg');
+      if (inlineSvg) {
+        // Set fixed container size values for calculation
+        inlineSvg.setAttribute('width', '100%');
+        inlineSvg.setAttribute('height', '100%');
+        
+        // Setup class handlers for painting
+        applyInteractiveCSSClassesToSVGPaths(inlineSvg, config.palette);
+      }
+
+      // Load progress map
+      let imageProgress = appColoringProgress[imageId] || {};
+      appColoringProgress[imageId] = imageProgress;
+
+      applyProgressColorsToDrawing(imageProgress);
+
+      // Render numbers
+      renderPaintNumbersOverlay();
+
+      // Reset panels zoom and pan parameters
+      resetZoomPan();
+
+      // Populate interactive coloring drawer pallet
+      rebuildColorPaletteView();
+
+      // Clear undo history stack for the drawing
+      commitHistoryCheckpoint();
+    }
+
+
+    // INTERACTIVE SVG CLASS INJECTORS
+    function applyInteractiveCSSClassesToSVGPaths(svgNode, palette) {
+      // Find all colorable segments
+      const allPaths = svgNode.querySelectorAll('path, circle, rect, polygon, ellipse, g');
+      
+      // Initially set all pathways events properties to none
+      allPaths.forEach(node => {
+        if (node.tagName.toLowerCase() !== 'svg' && node.tagName.toLowerCase() !== 'style' && node.tagName.toLowerCase() !== 'g') {
+          node.style.pointerEvents = "all";
+          node.style.stroke = "#111827";
+          node.style.strokeWidth = "2.5px";
+          // If no fill exists, default to background gray color
+          const currentFill = node.getAttribute('fill');
+          if (!currentFill || currentFill === 'none') {
+            node.setAttribute('fill', '#f3f4f6');
+          }
+        }
+      });
+
+      // Hook touch events for painting
+      allPaths.forEach(node => {
+        const id = node.getAttribute('id');
+        if (id) {
+          node.onclick = (e) => handleSvgPathElementClicked(id, e);
+        }
+      });
+    }
+
+    // RUN THE PAINT STROKE ACTION
+    function handleSvgPathElementClicked(pathId, event) {
+      event.preventDefault();
+      event.stopPropagation();
+
+      // If zone editor is active, handle mapping setup
+      if (zoneEditorModeActive) {
+        selectZoneInEditor(pathId);
+        return;
+      }
+
+      // Check if coloring is restricted to a selected color
+      const config = getActiveDrawingConfig(currentImageId);
+      if (!config) return;
+
+      const paletteItem = config.palette.palette[activeColorIndex];
+      
+      // Bucket Eraser selected (Eraser) - allows clearing any zone
+      if (activeColorIndex === -2) {
+        removeColorFromZone(pathId);
+        return;
+      }
+
+      if (!paletteItem) {
+        // Simple hud message
+        showFloatingToast("Selecciona primero un color de la paleta.");
+        return;
+      }
+
+      // Check if the touched path is in the active zones group
+      const isValidZone = paletteItem.zones.includes(pathId);
+      if (!isValidZone) {
+        showFloatingToast(`Esa zona no corresponde al número ${paletteItem.number}. ¡Busca otra!`);
+        return;
+      }
+
+      // Fill color
+      const activeColor = activeAlternateHex || paletteItem.suggestedHex;
+      setZoneColorInCore(pathId, activeColor);
+    }
+
+    function setZoneColorInCore(pathId, hexColor) {
+      const el = document.getElementById(pathId);
+      if (!el) return;
+
+      el.setAttribute('fill', hexColor);
+
+      // Save color progress state
+      appColoringProgress[currentImageId][pathId] = hexColor;
+
+      // Persist state
+      persistStateToLocalStorage();
+
+      // Clear corresponding guide numbers overlay immediately (since it's correctly painted)
+      updateNumberOverlayStatus(pathId, true);
+
+      // Save history change check
+      commitHistoryCheckpoint();
+    }
+
+
+    function removeColorFromZone(pathId) {
+      // Find out if the path can be reset
+      const el = document.getElementById(pathId);
+      if (!el) return;
+
+      el.setAttribute('fill', '#f5f5f5');
+      delete appColoringProgress[currentImageId][pathId];
+      persistStateToLocalStorage();
+
+      // Return paint guide overlay numbers back to visible state
+      updateNumberOverlayStatus(pathId, false);
+
+      commitHistoryCheckpoint();
+    }
+
+    function playActivePaintingAnimationOnPath(pathId, colorHex) {
+      // A quick visual feedback ripple is already achieved by native SVG path animations
+    }
+
+
+    // PROGRESS PAINTER
+    function applyProgressColorsToDrawing(progressMap) {
+      Object.keys(progressMap).forEach(pathId => {
+        const el = document.getElementById(pathId);
+        if (el) {
+          el.setAttribute('fill', progressMap[pathId]);
+        }
+      });
+    }
+
+
+    // UNDO REDO HISTORIES
+    function commitHistoryCheckpoint() {
+      // Create current snapshot
+      const snapshot = JSON.stringify(appColoringProgress[currentImageId] || {});
+      
+      // If same as previous pointer, ignore
+      if (actionStateHistory[actionStatePointer] === snapshot) return;
+
+      // Slice out any leading redos
+      actionStateHistory = actionStateHistory.slice(0, actionStatePointer + 1);
+      actionStateHistory.push(snapshot);
+      actionStatePointer = actionStateHistory.length - 1;
+
+      updateHistoryActionButtons();
+    }
+
+    function historyUndo() {
+      if (actionStatePointer > 0) {
+        actionStatePointer--;
+        restoreStateFromHistoricalSnapshot();
+      }
+    }
+
+    function historyRedo() {
+      if (actionStatePointer < actionStateHistory.length - 1) {
+        actionStatePointer++;
+        restoreStateFromHistoricalSnapshot();
+      }
+    }
+
+    function restoreStateFromHistoricalSnapshot() {
+      const snapshot = actionStateHistory[actionStatePointer];
+      if (!snapshot) return;
+
+      const progressMap = JSON.parse(snapshot);
+      appColoringProgress[currentImageId] = progressMap;
+      persistStateToLocalStorage();
+
+      // Return paths to gray default
+      const container = document.getElementById('svg-rendering-container');
+      const allPaths = container.querySelectorAll('path, circle, rect, polygon, ellipse');
+      allPaths.forEach(n => {
+        if (n.getAttribute('id')) {
+          n.setAttribute('fill', '#f5f5f5');
+        }
+      });
+
+      // Rerender state progress colorfills
+      applyProgressColorsToDrawing(progressMap);
+
+      // Re-evaluate numbers overlays opacity states
+      const config = getActiveDrawingConfig(currentImageId);
+      if (config) {
+        config.palette.palette.forEach(entry => {
+          entry.zones.forEach(zoneId => {
+            const isPainted = progressMap[zoneId] !== undefined;
+            updateNumberOverlayStatus(zoneId, isPainted);
+          });
+        });
+      }
+
+      updateHistoryActionButtons();
+    }
+
+    function updateHistoryActionButtons() {
+      document.getElementById('undo-btn').disabled = actionStatePointer <= 0;
+      document.getElementById('redo-btn').disabled = actionStatePointer >= actionStateHistory.length - 1;
+    }
+
+    function confirmResetDrawing() {
+      if (confirm("¿Estás seguro de que deseas vaciar y reiniciar todos los colores de este dibujo?")) {
+        appColoringProgress[currentImageId] = {};
+        persistStateToLocalStorage();
+
+        // Reload drawing
+        loadActiveImageInWorkspace(currentImageId);
+      }
+    }
+
+
+    // PAINT BY NUMBERS DRAWINGS NUMERATION SYSTEM
+    function renderPaintNumbersOverlay() {
+      const overlay = document.getElementById('numbers-overlay-layer');
+      overlay.innerHTML = '';
+
+      const container = document.getElementById('svg-rendering-container');
+      const inlineSvg = container.querySelector('svg');
+      if (!inlineSvg) return;
+
+      const config = getActiveDrawingConfig(currentImageId);
+      if (!config) return;
+
+      // Copy primary viewBox parameters so numbers absolute scales match SVG bounds perfectly!
+      const viewBoxStr = inlineSvg.getAttribute('viewBox') || "0 0 500 500";
+      overlay.setAttribute('viewBox', viewBoxStr);
+
+      const progressMap = appColoringProgress[currentImageId] || {};
+
+      config.palette.palette.forEach(colorEntry => {
+        colorEntry.zones.forEach(zoneId => {
+          const matchingPath = inlineSvg.getElementById(zoneId);
+          if (!matchingPath) return;
+
+          // Compute bounding box coordinates inside viewBox space
+          // In SVG, path.getBBox() can locate the boundaries
+          let bbox = { x: 0, y: 0, width: 0, height: 0 };
+          try {
+            bbox = matchingPath.getBBox();
+          } catch(e) {
+            // Fallback heuristics if getBBox errors out in initial renders
+            const pathD = matchingPath.getAttribute('d');
+            if (pathD) {
+              const matchedNums = pathD.match(/[-+]?[0-9]*\.?[0-9]+/g);
+              if (matchedNums && matchedNums.length >= 4) {
+                let xs = [], ys = [];
+                for(let i=0; i<matchedNums.length; i+=2) {
+                  xs.push(parseFloat(matchedNums[i]));
+                  if (matchedNums[i+1]) ys.push(parseFloat(matchedNums[i+1]));
+                }
+                const minX = Math.min(...xs), maxX = Math.max(...xs);
+                const minY = Math.min(...ys), maxY = Math.max(...ys);
+                bbox = { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+              }
+            }
+          }
+
+          // Center coordinate
+          const cx = bbox.x + bbox.width / 2;
+          const cy = bbox.y + bbox.height / 2;
+
+          // Skip rendering if area is incredibly minuscule
+          if (bbox.width < 5 && bbox.height < 5) return;
+
+          // Group block wrapping numbers
+          const numGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+          numGroup.setAttribute('id', `num-overlay-${zoneId}`);
+          numGroup.setAttribute('class', `number-wrapper-node transition-opacity duration-300`);
+
+          // Color entry completion check
+          const isPainted = progressMap[zoneId] !== undefined;
+          if (isPainted) {
+            numGroup.setAttribute('style', 'opacity: 0;');
+          }
+
+          // Background support circle
+          const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+          circle.setAttribute('cx', cx);
+          circle.setAttribute('cy', cy);
+          circle.setAttribute('r', '14');
+          circle.setAttribute('id', `num-bg-${zoneId}`);
+          circle.setAttribute('fill', '#ffffff');
+          circle.setAttribute('fill-opacity', '0.9');
+          circle.setAttribute('stroke', colorEntry.suggestedHex);
+          circle.setAttribute('stroke-width', '2');
+          numGroup.appendChild(circle);
+
+          // Value Text
+          const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          text.setAttribute('x', cx);
+          text.setAttribute('y', cy + 1);
+          text.setAttribute('text-anchor', 'middle');
+          text.setAttribute('dominant-baseline', 'middle');
+          text.setAttribute('font-size', '12');
+          text.setAttribute('font-weight', 'bold');
+          text.setAttribute('fill', '#000000');
+          text.textContent = colorEntry.number;
+          numGroup.appendChild(text);
+
+          overlay.appendChild(numGroup);
+        });
+      });
+
+      // Synchronize visual states of circles and locks
+      applyDynamicStatusStylesOnPaintGuides();
+    }
+
+    function updateNumberOverlayStatus(zoneId, isPainted) {
+      const numWrap = document.getElementById(`num-overlay-${zoneId}`);
+      if (numWrap) {
+        if (isPainted) {
+          numWrap.style.opacity = '0';
+        } else {
+          numWrap.style.opacity = '1';
+        }
+      }
+    }
+
+    function applyDynamicStatusStylesOnPaintGuides() {
+      const config = getActiveDrawingConfig(currentImageId);
+      if (!config) return;
+
+      const overlay = document.getElementById('numbers-overlay-layer');
+      const interactiveContainer = document.getElementById('svg-rendering-container');
+
+      config.palette.palette.forEach((colorEntry, colorIdx) => {
+        const isCurrentlySelectedGroup = (colorIdx === activeColorIndex);
+
+        colorEntry.zones.forEach(zoneId => {
+          const overlayItem = document.getElementById(`num-overlay-${zoneId}`);
+          const matchingPath = interactiveContainer.querySelector(`#${zoneId}`);
+          
+          if (!matchingPath) return;
+
+          // Adjust pointer event styles based on locking
+          if (activeColorIndex === -1) {
+            // General zoom mode: all clickable, regular color state
+            matchingPath.className.baseVal = '';
+            matchingPath.style.pointerEvents = "all";
+            matchingPath.style.opacity = "1";
+
+            if (overlayItem) {
+              const bgCircle = document.getElementById(`num-bg-${zoneId}`);
+              bgCircle?.setAttribute('stroke-width', '2');
+              bgCircle?.setAttribute('stroke', colorEntry.suggestedHex);
+              overlayItem.classList.remove('number-active-pulse');
+              overlayItem.style.opacity = appColoringProgress[currentImageId][zoneId] ? '0' : '1';
+            }
+          } 
+          else if (activeColorIndex === -2) {
+            // Eraser mode: everything highlight outlineable for delete clicked
+            matchingPath.className.baseVal = 'zone-active';
+            matchingPath.style.opacity = '1';
+            if (overlayItem) {
+              overlayItem.style.opacity = '0'; // hide guides in clear action
+            }
+          }
+          else {
+            // Restricted paint sequence active!
+            const isMatch = isCurrentlySelectedGroup;
+
+            if (isMatch) {
+              // Active zone
+              matchingPath.className.baseVal = 'zone-active';
+              matchingPath.style.opacity = "1";
+
+              if (overlayItem) {
+                overlayItem.style.opacity = appColoringProgress[currentImageId][zoneId] ? '0' : '1';
+                overlayItem.classList.add('number-active-pulse');
+                const bgCircle = document.getElementById(`num-bg-${zoneId}`);
+                bgCircle?.setAttribute('stroke-width', '3');
+                bgCircle?.setAttribute('stroke', '#6366f1'); // highlight active items in purple glow
+              }
+            } else {
+              // Locked paths opacified
+              matchingPath.className.baseVal = 'zone-locked';
+              matchingPath.style.opacity = classicOutlineModeEnabled ? "0.9" : "0.35";
+
+              if (overlayItem) {
+                overlayItem.classList.remove('number-active-pulse');
+                const bgCircle = document.getElementById(`num-bg-${zoneId}`);
+                bgCircle?.setAttribute('stroke-width', '1');
+                bgCircle?.setAttribute('stroke', '#94a3b8'); // Gray outline
+                overlayItem.style.opacity = appColoringProgress[currentImageId][zoneId] ? '0' : '0.45';
+              }
+            }
+          }
+        });
+      });
+    }
+
+
+    // PALETTE GUI RENDERING LOOPS
+    function rebuildColorPaletteView() {
+      const config = getActiveDrawingConfig(currentImageId);
+      const root = document.getElementById('palette-choices-root');
+      root.innerHTML = '';
+
+      if (!config) return;
+
+      // Unselect Zoom button first
+      const zoomCard = document.createElement('button');
+      zoomCard.onclick = () => selectPaletteIndex(-1);
+      zoomCard.className = `shrink-0 p-2.5 rounded-2xl flex flex-col items-center gap-1 border transition-all duration-200 active:scale-95 ${activeColorIndex === -1 ? 'bg-slate-800 border-indigo-500 text-slate-100 shadow-md shadow-indigo-500/10' : 'bg-slate-950/40 border-slate-800 text-slate-400 hover:text-slate-300'}`;
+      zoomCard.innerHTML = `
+        <div class="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-xs">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        </div>
+        <span class="text-[9px] font-bold">Navegar</span>
+      `;
+      root.appendChild(zoomCard);
+
+      config.palette.palette.forEach((entry, idx) => {
+        const isSelected = (idx === activeColorIndex);
+        const paletteHex = entry.suggestedHex;
+
+        // Custom item badge
+        const badgeBtn = document.createElement('button');
+        badgeBtn.onclick = () => selectPaletteIndex(idx);
+        badgeBtn.className = `shrink-0 p-2.5 rounded-2xl flex flex-col items-center gap-1 border transition-all duration-200 active:scale-95 min-w-[70px] ${isSelected ? 'bg-slate-800 border-indigo-500 text-slate-100 shadow-md shadow-indigo-500/10 scale-102' : 'bg-slate-950/40 border-slate-800 text-slate-400 hover:text-slate-350 hover:bg-slate-900/30'}`;
+
+        badgeBtn.innerHTML = `
+          <div class="relative w-10 h-10 rounded-full flex items-center justify-center border-2 shadow-inner" style="background-color: ${paletteHex}; border-color: ${isSelected ? '#e2e8f0' : 'rgba(15, 23, 42, 0.5)'};">
+            <span class="font-bold text-xs bg-slate-950/80 w-6 h-6 rounded-full flex items-center justify-center border border-slate-800 text-white">${entry.number}</span>
+          </div>
+          <span class="text-[9px] font-bold tracking-tight truncate max-w-[65px]">${entry.label}</span>
+        `;
+
+        root.appendChild(badgeBtn);
+      });
+
+      // Synchronize alternative swatches view
+      updateAlternativeColorPaletteView();
+    }
+
+    function selectPaletteIndex(index) {
+      activeColorIndex = index;
+      activeAlternateHex = ""; // Reset customized free-color selection
+
+      const config = getActiveDrawingConfig(currentImageId);
+      const hud = document.getElementById('active-palette-name-hud');
+
+      if (index === -1) {
+        hud.textContent = "Modo Navegar / Mover";
+      } else if (index === -2) {
+        hud.textContent = "Borrador de Color Activo";
+      } else if (config) {
+        const item = config.palette.palette[index];
+        hud.textContent = `Pintar: ${item.label} (${item.suggestedHex})`;
+      }
+
+      // Refresh list highlights
+      rebuildColorPaletteView();
+
+      // Refresh locks and pulsers active classes
+      applyDynamicStatusStylesOnPaintGuides();
+    }
+
+    function activateColorEraser() {
+      selectPaletteIndex(-2);
+    }
+
+    // ALTERNATIVES CONTROLLERS
+    function updateAlternativeColorPaletteView() {
+      const container = document.getElementById('palette-alternatives-container');
+      const root = document.getElementById('palette-alternatives-root');
+      root.innerHTML = '';
+
+      const config = getActiveDrawingConfig(currentImageId);
+      if (activeColorIndex < 0 || !config) {
+        container.classList.add('hidden');
+        return;
+      }
+
+      container.classList.remove('hidden');
+      const entry = config.palette.palette[activeColorIndex];
+
+      // Insert suggested color
+      const originalOption = document.createElement('button');
+      originalOption.onclick = () => selectAlternativeColorHex(entry.suggestedHex);
+      originalOption.className = `w-7 h-7 rounded-lg border-2 shrink-0 transition hover:scale-105 active:scale-95 ${activeAlternateHex === "" || activeAlternateHex === entry.suggestedHex ? 'border-indigo-400 scale-102 shadow' : 'border-slate-850'}`;
+      originalOption.style.backgroundColor = entry.suggestedHex;
+      originalOption.title = "Sugerido";
+      root.appendChild(originalOption);
+
+      // Alternatives loop
+      if (entry.alternativeColors) {
+        entry.alternativeColors.forEach(altHex => {
+          const altBtn = document.createElement('button');
+          altBtn.onclick = () => selectAlternativeColorHex(altHex);
+          altBtn.className = `w-7 h-7 rounded-lg border-2 shrink-0 transition hover:scale-105 active:scale-95 ${activeAlternateHex === altHex ? 'border-indigo-400 scale-102 shadow' : 'border-slate-850'}`;
+          altBtn.style.backgroundColor = altHex;
+          root.appendChild(altBtn);
+        });
+      }
+    }
+
+    function selectAlternativeColorHex(hex) {
+      activeAlternateHex = hex;
+      updateAlternativeColorPaletteView();
+      applyDynamicStatusStylesOnPaintGuides();
+    }
+
+    function applyCustomAlternativeColor(hexValue) {
+      selectAlternativeColorHex(hexValue);
+    }
+
+
+    // GUI CONTROL ADJUSTERS
+    function toggleNumbersLayerVis() {
+      paintNumbersVisible = !paintNumbersVisible;
+      const layer = document.getElementById('numbers-overlay-layer');
+      const visibleIcon = document.getElementById('icon-numbers-visible');
+      const hiddenIcon = document.getElementById('icon-numbers-hidden');
+      const btn = document.getElementById('toggle-numbers-btn');
+
+      if (paintNumbersVisible) {
+        layer.style.display = 'block';
+        visibleIcon.classList.remove('hidden');
+        hiddenIcon.classList.add('hidden');
+        btn.classList.replace('bg-slate-800', 'bg-indigo-600');
+      } else {
+        layer.style.display = 'none';
+        visibleIcon.classList.add('hidden');
+        hiddenIcon.classList.remove('hidden');
+        btn.classList.replace('bg-indigo-600', 'bg-slate-800');
+      }
+    }
+
+    function toggleClassicOutlineMode() {
+      classicOutlineModeEnabled = !classicOutlineModeEnabled;
+      const btn = document.getElementById('toggle-classic-outlines-btn');
+      const container = document.getElementById('svg-rendering-container');
+
+      if (classicOutlineModeEnabled) {
+        btn.classList.replace('bg-slate-900/90', 'bg-teal-600');
+        // Gray colors visual overrides
+        const allPaths = container.querySelectorAll('path, circle, rect, polygon, ellipse');
+        allPaths.forEach(p => {
+          const id = p.getAttribute('id');
+          if (id) {
+            // If painted, set opacity high, otherwise standard #e5e7eb
+            const isPainted = appColoringProgress[currentImageId][id] !== undefined;
+            p.setAttribute('fill', isPainted ? appColoringProgress[currentImageId][id] : '#F5F5F5');
+          }
+        });
+      } else {
+        btn.classList.replace('bg-teal-600', 'bg-slate-900/90');
+        // Reload normal coloring values
+        loadActiveImageInWorkspace(currentImageId);
+      }
+
+      applyDynamicStatusStylesOnPaintGuides();
+    }
+
+
+    // DRAWING SIDEBAR CONTROLS
+    function toggleSidebar(show) {
+      const sidebar = document.getElementById('sidebar-drawer');
+      const backdrop = document.getElementById('backdrop-overlay');
+
+      if (show) {
+        sidebar.classList.remove('-translate-x-full');
+        backdrop.classList.remove('hidden', 'pointer-events-none');
+        setTimeout(() => { backdrop.classList.add('opacity-100'); }, 10);
+      } else {
+        sidebar.classList.add('-translate-x-full');
+        backdrop.classList.remove('opacity-100');
+        setTimeout(() => { backdrop.classList.add('hidden', 'pointer-events-none'); }, 300);
+      }
+    }
+
+    function switchSidebarTab(tabName) {
+      sidebarTabMode = tabName;
+      // Buttons
+      ['gallery', 'github', 'editor'].forEach(t => {
+        const btn = document.getElementById(`tab-btn-${t}`);
+        const panel = document.getElementById(`side-panel-${t}`);
+
+        if (t === tabName) {
+          btn.classList.replace('border-transparent', 'border-indigo-500');
+          btn.classList.replace('text-slate-450', 'text-slate-200');
+          panel.classList.remove('hidden');
+        } else {
+          btn.classList.replace('border-indigo-500', 'border-transparent');
+          btn.classList.replace('text-slate-200', 'text-slate-450');
+          panel.classList.add('hidden');
+        }
+      });
+    }
+
+    function toggleInstructionsModal(show) {
+      const modal = document.getElementById('instructions-modal');
+      if (show) {
+        modal.classList.remove('hidden');
+      } else {
+        modal.classList.add('hidden');
+      }
+    }
+
+
+    // ZOOM - SCROLL - PAN INTERACTIVE IMPLEMENTATIONS
+    function initializeTouchGesturesEngine() {
+      const viewport = document.getElementById('zoom-pan-viewport');
+      const content = document.getElementById('zoom-pan-content');
+
+      viewport.addEventListener('mousedown', (e) => {
+        // Allow pan if right click or if selected color index is Navigate (-1) or space pressed
+        isPanningState = true;
+        panStartX = e.clientX - panX;
+        panStartY = e.clientY - panY;
+        viewport.style.cursor = 'grabbing';
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        if (!isPanningState) return;
+        panX = e.clientX - panStartX;
+        panY = e.clientY - panStartY;
+        applyViewportTransform();
+      });
+
+      window.addEventListener('mouseup', () => {
+        isPanningState = false;
+        viewport.style.cursor = 'grab';
+      });
+
+      // TOUCH LISTENERS (PINCH & PAN FOR MOBILE)
+      viewport.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 1) {
+          isPanningState = true;
+          panStartX = e.touches[0].clientX - panX;
+          panStartY = e.touches[0].clientY - panY;
+        } else if (e.touches.length === 2) {
+          isPanningState = false;
+          pinchStartDist = getMultiTouchDistance(e.touches);
+        }
+      }, { passive: true });
+
+      viewport.addEventListener('touchmove', (e) => {
+        if (isPanningState && e.touches.length === 1) {
+          panX = e.touches[0].clientX - panStartX;
+          panY = e.touches[0].clientY - panStartY;
+          applyViewportTransform();
+        } else if (e.touches.length === 2) {
+          const currentDist = getMultiTouchDistance(e.touches);
+          const factor = currentDist / (pinchStartDist || 1);
+          zoomScale = Math.min(Math.max(zoomScale * factor, 0.4), 6);
+          pinchStartDist = currentDist;
+          applyViewportTransform();
+        }
+      }, { passive: true });
+
+      viewport.addEventListener('touchend', () => {
+        isPanningState = false;
+      });
+
+      // MOUSE WHEEL SCROLL ZOOM
+      viewport.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const zoomFactor = 0.1;
+        if (e.deltaY < 0) {
+          zoomScale = Math.min(zoomScale + zoomFactor, 6);
+        } else {
+          zoomScale = Math.max(zoomScale - zoomFactor, 0.4);
+        }
+        applyViewportTransform();
+      }, { passive: false });
+    }
+
+    function getMultiTouchDistance(touches) {
+      const dx = touches[0].clientX - touches[1].clientX;
+      const dy = touches[0].clientY - touches[1].clientY;
+      return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    function applyViewportTransform() {
+      const content = document.getElementById('zoom-pan-content');
+      content.style.transform = `translate(${panX}px, ${panY}px) scale(${zoomScale})`;
+    }
+
+    function resetZoomPan() {
+      zoomScale = 0.85; // slightly shrink to view correctly in full portrait viewport
+      panX = 35;
+      panY = 30;
+      applyViewportTransform();
+    }
+
+    function zoomStep(amount) {
+      zoomScale = Math.min(Math.max(zoomScale + amount, 0.4), 6);
+      applyViewportTransform();
+    }
+
+
+    // NATIVE FILE UPLOADS PARSING HANDLER
+    function handleNativeLocalFilesUpload(filesList) {
+      if (!filesList || filesList.length === 0) return;
+
+      let uploadedSvgMapText = "";
+      let uploadedJsonPalette = null;
+
+      const fileEntriesArray = Array.from(filesList);
+
+      const promises = fileEntriesArray.map(file => {
+        return new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const content = e.target.result;
+            if (file.name.endsWith('.svg')) {
+              uploadedSvgMapText = content;
+            } else if (file.name.endsWith('.json')) {
+              try {
+                uploadedJsonPalette = JSON.parse(content);
+              } catch (e) {
+                console.error("Local JSON uploaded parse failed");
+              }
+            }
+            resolve();
+          };
+          reader.readAsText(file);
+        });
+      });
+
+      Promise.all(promises).then(() => {
+        if (!uploadedSvgMapText) {
+          showFloatingToast("Debes seleccionar al menos un archivo con formato .svg");
+          return;
+        }
+
+        const customImageId = `local_${Date.now()}`;
+        let resultingPalette = uploadedJsonPalette;
+
+        if (!resultingPalette) {
+          // Launch Zone Editor inside App sidebar directly to label it!
+          showFloatingToast("Cargado SVG sin un JSON. ¡Entrando al Editor de Zonas para configurarlo!");
+          
+          cachedImages[customImageId] = {
+            name: "Dibujo Editado",
+            svg: uploadedSvgMapText,
+            palette: {
+              imageId: customImageId,
+              imageName: "Dibujo Editado",
+              palette: []
+            }
+          };
+
+          // Setup generated details
+          generatedPaletteAccumulator = { imageId: customImageId, imageName: "Dibujo Editado", palette: [] };
+
+          persistStateToLocalStorage();
+          loadActiveImageInWorkspace(customImageId);
+          populateDrawingsGalleryGrid();
+          toggleSidebar(true);
+          switchSidebarTab('editor');
+          toggleActiveZoneEditorMode(true);
+          return;
+        }
+
+        // We got both SVG and JSON correctly!
+        cachedImages[customImageId] = {
+          name: resultingPalette.imageName || "Dibujo Cargado",
+          svg: uploadedSvgMapText,
+          palette: resultingPalette
+        };
+
+        persistStateToLocalStorage();
+        loadActiveImageInWorkspace(customImageId);
+        populateDrawingsGalleryGrid();
+        toggleSidebar(false);
+        showFloatingToast("¡Dibujo y Paleta cargados con éxito!");
+      });
+    }
+
+
+    // GALLERY LIST CREATION LOOPS
+    function populateDrawingsGalleryGrid() {
+      const grid = document.getElementById('gallery-drawings-grid');
+      grid.innerHTML = '';
+
+      let count = 0;
+
+      // Packaged items loop
+      Object.keys(INITIAL_DEMO_DRAWINGS).forEach(id => {
+        const item = INITIAL_DEMO_DRAWINGS[id];
+        grid.appendChild(createDrawingCardItem(id, item.name, isCurrentlyActive(id), true));
+        count++;
+      });
+
+      // Cached downloaded or uploaded files loop
+      Object.keys(cachedImages).forEach(id => {
+        const item = cachedImages[id];
+        grid.appendChild(createDrawingCardItem(id, item.name, isCurrentlyActive(id), false));
+        count++;
+      });
+
+      document.getElementById('gallery-count-hud').textContent = `${count} disponibles`;
+    }
+
+    function isCurrentlyActive(id) {
+      return id === currentImageId;
+    }
+
+    function createDrawingCardItem(id, name, active, isDemo) {
+      const card = document.createElement('div');
+      card.className = `flex flex-col bg-slate-950 border rounded-xl overflow-hidden cursor-pointer select-none transition-all duration-200 active:scale-98 ${active ? 'border-indigo-500 shadow shadow-indigo-500/20' : 'border-slate-850 hover:border-slate-750'}`;
+      card.onclick = () => {
+        loadActiveImageInWorkspace(id);
+        toggleSidebar(false);
+      };
+
+      // Custom dummy visual miniature grid
+      card.innerHTML = `
+        <div class="h-20 bg-slate-900 border-b border-slate-850 flex items-center justify-center p-2 text-slate-500">
+          <svg class="w-8 h-8 opacity-60" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 002-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+        </div>
+        <div class="p-2.5 flex flex-col gap-1 items-stretch">
+          <span class="text-[10px] font-bold text-slate-200 truncate leading-tight">${name}</span>
+          <span class="text-[8px] text-slate-500 font-semibold">${isDemo ? 'Predeterminado' : 'Carga de Usuario'}</span>
+        </div>
+      `;
+      return card;
+    }
+
+
+    // GITHUB SYNCHRONIZATION CONTROLLER
+    function syncGitHubHUD() {
+      // Sync parameters to input text values
+      document.getElementById('gh-owner-input').value = gitHubConfig.owner || "";
+      document.getElementById('gh-repo-input').value = gitHubConfig.repo || "";
+      document.getElementById('gh-branch-input').value = gitHubConfig.branch || "main";
+      document.getElementById('gh-token-input').value = gitHubConfig.token || "";
+    }
+
+    async function saveAndSyncGitHubConfig() {
+      gitHubConfig.owner = document.getElementById('gh-owner-input').value.trim();
+      gitHubConfig.repo = document.getElementById('gh-repo-input').value.trim();
+      gitHubConfig.branch = document.getElementById('gh-branch-input').value.trim();
+      gitHubConfig.token = document.getElementById('gh-token-input').value.trim();
+
+      if (!gitHubConfig.owner || !gitHubConfig.repo) {
+        showFloatingToast("Debes completar el usuario y el repositorio de GitHub.");
+        return;
+      }
+
+      persistStateToLocalStorage();
+
+      // Start network check load sync items
+      const spinner = document.getElementById('loading-spinner');
+      spinner.classList.remove('pointer-events-none', 'opacity-0');
+      spinner.classList.add('opacity-100');
+
+      try {
+        const headers = {};
+        if (gitHubConfig.token) {
+          headers["Authorization"] = `Bearer ${gitHubConfig.token}`;
+        }
+
+        const url = `https://api.github.com/repos/${gitHubConfig.owner}/${gitHubConfig.repo}/contents/images?ref=${gitHubConfig.branch}`;
+        const response = await fetch(url, { headers });
+        if (!response.ok) {
+          throw new Error("Errores de comunicación API GitHub. Por favor comprueba tus accesos.");
+        }
+
+        const data = await response.json();
+        
+        // Find all svg names matching companion json names
+        const filesMap = {}; // name -> {svgUrl, jsonUrl}
+        data.forEach(item => {
+          if (item.type === "file") {
+            const extIdx = item.name.lastIndexOf('.');
+            if (extIdx !== -1) {
+              const baseName = item.name.substr(0, extIdx);
+              const ext = item.name.substr(extIdx).toLowerCase();
+              if (!filesMap[baseName]) filesMap[baseName] = {};
+              
+              if (ext === ".svg") filesMap[baseName].svgUrl = item.download_url;
+              if (ext === ".json") filesMap[baseName].jsonUrl = item.download_url;
+            }
+          }
+        });
+
+        const syncKeys = Object.keys(filesMap).filter(k => filesMap[k].svgUrl && filesMap[k].jsonUrl);
+        if (syncKeys.length === 0) {
+          showFloatingToast("Sincronización finalizada. No se encontraron parejas de `.svg + .json` en la carpeta `images/`.");
+        } else {
+          // Download and cache files
+          let downloadedCount = 0;
+          for (const key of syncKeys) {
+            const svgRes = await fetch(filesMap[key].svgUrl);
+            const svgTxt = await svgRes.text();
+
+            const jsonRes = await fetch(filesMap[key].jsonUrl);
+            const jsonPalette = await jsonRes.json();
+
+            // Cache it!
+            cachedImages[key] = {
+              name: jsonPalette.imageName || key,
+              svg: svgTxt,
+              palette: jsonPalette
+            };
+            downloadedCount++;
+          }
+
+          persistStateToLocalStorage();
+          populateDrawingsGalleryGrid();
+          showFloatingToast(`Sincronizados con éxito ${downloadedCount} dibujos desde GitHub.`);
+        }
+
+      } catch (e) {
+        showFloatingToast(`No se pudo sincronizar: ${e.message}`);
+      } finally {
+        spinner.classList.add('pointer-events-none', 'opacity-0');
+        spinner.classList.remove('opacity-100');
+      }
+    }
+
+
+    // SVGs INTERACTIVE ZONE LABELER & DEVELOPER EDITOR
+    function toggleActiveZoneEditorMode(forceVal) {
+      zoneEditorModeActive = (forceVal !== undefined) ? forceVal : !zoneEditorModeActive;
+
+      const toggleBtn = document.getElementById('editor-active-toggle-btn');
+      const badgePaint = document.getElementById('paint-mode-badge');
+      const badgeEditor = document.getElementById('editor-mode-badge');
+      const cardForm = document.getElementById('editor-form-card');
+
+      if (zoneEditorModeActive) {
+        // Activate
+        toggleBtn.querySelector('span').style.transform = 'translateX(24px)';
+        toggleBtn.classList.replace('bg-slate-800', 'bg-amber-500');
+        badgePaint.classList.add('hidden');
+        badgeEditor.classList.remove('hidden');
+        cardForm.classList.remove('opacity-40', 'pointer-events-none');
+
+        // Refresh all standard SVGs elements inside workspace to highlight outlines
+        makePathsHighlightableForZoneNaming(true);
+
+        showFloatingToast("Entraste a Editor de Zonas. Toca cualquier elemento para etiquetarlo.");
+      } else {
+        // Deactivate
+        toggleBtn.querySelector('span').style.transform = 'translateX(0px)';
+        toggleBtn.classList.replace('bg-amber-500', 'bg-slate-800');
+        badgePaint.classList.remove('hidden');
+        badgeEditor.classList.add('hidden');
+        cardForm.classList.add('opacity-40', 'pointer-events-none');
+
+        // Reset pointer-actions and outlines back to normal paint layout
+        makePathsHighlightableForZoneNaming(false);
+        loadActiveImageInWorkspace(currentImageId);
+      }
+    }
+
+    function makePathsHighlightableForZoneNaming(active) {
+      const container = document.getElementById('svg-rendering-container');
+      const allPaths = container.querySelectorAll('path, circle, rect, polygon, ellipse');
+      
+      allPaths.forEach(n => {
+        if (active) {
+          n.className.baseVal = '';
+          n.classList.add('zone-editor-active');
+          n.style.pointerEvents = "all";
+        } else {
+          n.className.baseVal = '';
+        }
+      });
+    }
+
+    function selectZoneInEditor(pathId) {
+      focusedEditZonePathId = pathId;
+      document.getElementById('edit-focused-id').textContent = pathId;
+
+      // Outline highlight focused element
+      const container = document.getElementById('svg-rendering-container');
+      const allPaths = container.querySelectorAll('path, circle, rect, polygon, ellipse');
+      allPaths.forEach(p => p.style.stroke = "#111827");
+
+      const elementToFocus = container.querySelector(`#${pathId}`);
+      if (elementToFocus) {
+        elementToFocus.style.stroke = "#f59e0b"; // yellow border
+        elementToFocus.style.strokeWidth = "4px";
+      }
+
+      // Check if path is already mapped inside accumulator palette
+      const matchedIdx = findPaletteEntryMatchingPathId(pathId);
+      if (matchedIdx !== -1) {
+        const item = generatedPaletteAccumulator.palette[matchedIdx];
+        document.getElementById('edit-label-input').value = item.label;
+        document.getElementById('edit-number-input').value = item.number;
+        document.getElementById('edit-color-input').value = item.suggestedHex;
+        document.getElementById('edit-color-hex-hud').textContent = item.suggestedHex;
+      } else {
+        // Set fallback values
+        document.getElementById('edit-label-input').value = "";
+        document.getElementById('edit-number-input').value = (generatedPaletteAccumulator.palette.length + 1);
+        document.getElementById('edit-color-input').value = "#6366f1";
+        document.getElementById('edit-color-hex-hud').textContent = "#6366f1";
+      }
+    }
+
+    function findPaletteEntryMatchingPathId(pathId) {
+      return generatedPaletteAccumulator.palette.findIndex(entry => entry.zones.includes(pathId));
+    }
+
+    function commitZoneAssignment() {
+      if (!focusedEditZonePathId) {
+        showFloatingToast("Selecciona primero un path en el dibujo.");
+        return;
+      }
+
+      const label = document.getElementById('edit-label-input').value.trim();
+      const num = parseInt(document.getElementById('edit-number-input').value);
+      const hex = document.getElementById('edit-color-input').value;
+
+      if (!label) {
+        showFloatingToast("Por favor ingresa un nombre para esta zona.");
+        return;
+      }
+
+      // Ensure base IDs accumulator image details are primed
+      if (!generatedPaletteAccumulator.imageId) {
+        generatedPaletteAccumulator.imageId = currentImageId;
+        generatedPaletteAccumulator.imageName = getActiveDrawingConfig(currentImageId)?.name || "Dibujo Personalizado";
+      }
+
+      // Remove existing pathId mappings from any alternate category first
+      generatedPaletteAccumulator.palette.forEach(entry => {
+        entry.zones = entry.zones.filter(z => z !== focusedEditZonePathId);
+      });
+
+      // Clear empty entries
+      generatedPaletteAccumulator.palette = generatedPaletteAccumulator.palette.filter(entry => entry.zones.length > 0);
+
+      // Search if sequence number already configured
+      let targetEntry = generatedPaletteAccumulator.palette.find(entry => entry.number === num);
+      if (targetEntry) {
+        // Add to zones array list
+        targetEntry.zones.push(focusedEditZonePathId);
+      } else {
+        // Create new category entry
+        generatedPaletteAccumulator.palette.push({
+          colorId: `col_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+          number: num,
+          label: label,
+          suggestedHex: hex,
+          alternativeColors: ["#ef4444", "#3b82f6", "#10b981", "#f59e0b", "#8b5cf6"],
+          zones: [focusedEditZonePathId]
+        });
+      }
+
+      // Visual color-fill update on canvas directly to verify
+      const el = document.getElementById(focusedEditZonePathId);
+      if (el) el.setAttribute('fill', hex);
+
+      // Save to cache workspace image palette configs to keep synced
+      const workspaceConfig = getActiveDrawingConfig(currentImageId);
+      if (workspaceConfig) {
+        workspaceConfig.palette = JSON.parse(JSON.stringify(generatedPaletteAccumulator));
+        persistStateToLocalStorage();
+      }
+
+      showFloatingToast(`Zona "${label}" asignada con éxito.`);
+
+      // Reset focus stroke borders
+      el.style.stroke = "#111827";
+      focusedEditZonePathId = null;
+      document.getElementById('edit-focused-id').textContent = "Ninguna";
+    }
+
+    // EXPORTS GENERATED SETUP DATA
+    function exportModifiedSVG() {
+      const config = getActiveDrawingConfig(currentImageId);
+      if (!config) return;
+
+      // Extract raw text from rendering container
+      const containerText = document.getElementById('svg-rendering-container').innerHTML;
+      if (!containerText) return;
+
+      triggerTextDownload(containerText, `${currentImageId}.svg`, "image/svg+xml");
+    }
+
+    function exportGeneratedJSON() {
+      if (generatedPaletteAccumulator.palette.length === 0) {
+        showFloatingToast("No has asignado ninguna zona todavía.");
+        return;
+      }
+      const dataStr = JSON.stringify(generatedPaletteAccumulator, null, 2);
+      triggerTextDownload(dataStr, `${currentImageId}.json`, "application/json");
+    }
+
+    function triggerTextDownload(text, fileName, mimeType) {
+      const blob = new Blob([text], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+
+
+    // EXPORT HIGH RESOLUTION COLOR DRAWINGS TO PNG CANVAS
+    async function exportColDrawing() {
+      // 1. Get original inline SVG text
+      const renderContainer = document.getElementById('svg-rendering-container');
+      const originalSvg = renderContainer.querySelector('svg');
+      if (!originalSvg) {
+        showFloatingToast("No se encontró ningún dibujo para exportar.");
+        return;
+      }
+
+      // Hide panels to avoid double taps while saving
+      const spinner = document.getElementById('loading-spinner');
+      spinner.querySelector('p').textContent = "Generando PNG limpio de alta resolución...";
+      spinner.classList.remove('pointer-events-none', 'opacity-0');
+      spinner.classList.add('opacity-100');
+
+      try {
+        // Create duplicate copy
+        const svgCopy = originalSvg.cloneNode(true);
+        svgCopy.setAttribute('width', '1000');
+        svgCopy.setAttribute('height', '1000');
+
+        // Serialize to blob
+        const svgString = new XMLSerializer().serializeToString(svgCopy);
+        const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+        const urlHelper = window.URL || window.webkitURL || window;
+        const blobUrl = urlHelper.createObjectURL(svgBlob);
+
+        // Instanciate temporary offscreen image to load vector content
+        const dummyImg = new Image();
+        dummyImg.onload = function() {
+          const canvas = document.getElementById('export-work-canvas');
+          canvas.width = 1000;
+          canvas.height = 1000;
+
+          const ctx = canvas.getContext('2d');
+          ctx.fillStyle = "#FFFFFF"; // fill background white card sheet
+          ctx.fillRect(0, 0, 1000, 1000);
+
+          // Draw vector content
+          ctx.drawImage(dummyImg, 0, 0, 1000, 1000);
+
+          // Trigger download anchor link
+          const pngUrl = canvas.toDataURL('image/png');
+          const saveLink = document.createElement('a');
+          saveLink.download = `${currentImageId}_coloreado.png`;
+          saveLink.href = pngUrl;
+          saveLink.click();
+
+          // Tidy caches
+          urlHelper.revokeObjectURL(blobUrl);
+
+          spinner.classList.add('pointer-events-none', 'opacity-0');
+          spinner.classList.remove('opacity-100');
+          showFloatingToast("¡Imagen descargada con éxito!");
+        };
+
+        dummyImg.onerror = function() {
+          throw new Error("Canvas rendering error");
+        };
+
+        dummyImg.src = blobUrl;
+
+      } catch(e) {
+        spinner.classList.add('pointer-events-none', 'opacity-0');
+        spinner.classList.remove('opacity-100');
+        showFloatingToast("No se pudo exportar la imagen. Comprueba compatibilidad.");
+      }
+    }
+
+
+    // UTILITY ACCESSIBILITY FLOATING HUD
+    function showFloatingToast(message) {
+      // Create quick animated popup toast
+      const toast = document.createElement('div');
+      toast.className = "fixed bottom-24 left-1/2 -translate-x-1/2 px-4 py-2.5 bg-slate-900 border border-slate-750 text-slate-100 font-semibold text-xs rounded-xl shadow-2xl transition-all duration-300 transform translate-y-4 opacity-0 z-50 text-center select-none shadow-indigo-500/10";
+      toast.textContent = message;
+      document.body.appendChild(toast);
+      
+      // Animate entry
+      setTimeout(() => {
+        toast.classList.replace('translate-y-4', 'translate-y-0');
+        toast.classList.replace('opacity-0', 'opacity-100');
+      }, 10);
+
+      // Animate exit
+      setTimeout(() => {
+        toast.classList.replace('translate-y-0', 'translate-y-4');
+        toast.classList.replace('opacity-100', 'opacity-0');
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    }
+  </script>
+</body>
+</html>
