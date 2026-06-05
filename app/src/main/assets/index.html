@@ -97,17 +97,25 @@
       box-shadow: 0 0 12px currentColor;
     }
 
-    #svg-rendering-container, #svg-container {
+    #svg-rendering-container, 
+    #svg-container, 
+    .svg-canvas, 
+    .canvas-area,
+    .drawing-area {
       background: #ffffff !important;
-      width: 100%;
-      min-height: 300px;
+      width: 100% !important;
+      min-height: 60vh !important;
+      height: auto !important;
+      display: block !important;
+      overflow: visible !important;
     }
 
-    #svg-rendering-container svg, #svg-container svg {
-      display: block;
-      width: 100%;
-      height: 100%;
-      max-width: 100%;
+    #svg-rendering-container svg, 
+    #svg-container svg {
+      display: block !important;
+      width: 100% !important;
+      height: 100% !important;
+      max-width: 100% !important;
     }
   </style>
 </head>
@@ -914,6 +922,12 @@
 
       // Setup drawing view scale sizes
       const container = document.getElementById('svg-rendering-container');
+      
+      console.log('SVG cargado, longitud:', config.svg ? config.svg.length : 0);
+      if (config.svg) {
+        console.log('Primeros 200 chars:', config.svg.substring(0, 200));
+      }
+
       container.innerHTML = config.svg;
 
       // Ensure inline SVG nodes have outline strokes and standard transition settings
@@ -928,23 +942,34 @@
           inlineSvg.setAttribute('viewBox', `0 0 ${numericW} ${numericH}`);
         }
 
-        // Set dimensions of parent wrapper to match viewBox coordinates
+        // Set dimensions of parent wrapper to match viewBox coordinates with proportional minimum scale
         const wrapper = document.getElementById('drawing-scale-wrapper');
         if (wrapper) {
           const viewBoxStr = inlineSvg.getAttribute('viewBox') || "0 0 500 500";
           const parts = viewBoxStr.trim().split(/[\s,]+/);
           if (parts.length === 4) {
-            wrapper.style.width = parts[2] + 'px';
-            wrapper.style.height = parts[3] + 'px';
+            let w = parseFloat(parts[2]) || 500;
+            let h = parseFloat(parts[3]) || 500;
+            
+            // Ensure largest side is at least 500 for proper display layout
+            const targetMinSize = 500;
+            if (w < targetMinSize || h < targetMinSize) {
+              const scale = targetMinSize / Math.max(w, h);
+              w = w * scale;
+              h = h * scale;
+            }
+            wrapper.style.width = w + 'px';
+            wrapper.style.height = h + 'px';
           } else {
             wrapper.style.width = '500px';
             wrapper.style.height = '500px';
           }
         }
 
-        // Set fixed container size values for calculation
-        inlineSvg.setAttribute('width', '100%');
-        inlineSvg.setAttribute('height', '100%');
+        // Remove absolute width and height attributes to let CSS flex/scale work, then set styling constraints
+        inlineSvg.removeAttribute('width');
+        inlineSvg.removeAttribute('height');
+        inlineSvg.style.cssText = 'width: 100% !important; height: auto !important; display: block !important; background: white;';
         
         // Setup class handlers for painting
         applyInteractiveCSSClassesToSVGPaths(inlineSvg, config.palette);
