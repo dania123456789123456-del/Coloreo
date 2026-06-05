@@ -774,6 +774,29 @@
       // Ensure inline SVG nodes have outline strokes and standard transition settings
       const inlineSvg = container.querySelector('svg');
       if (inlineSvg) {
+        // Fallback for missing viewBox attribute
+        if (!inlineSvg.getAttribute('viewBox')) {
+          const w = inlineSvg.getAttribute('width') || "500";
+          const h = inlineSvg.getAttribute('height') || "500";
+          const numericW = parseFloat(w) || 500;
+          const numericH = parseFloat(h) || 500;
+          inlineSvg.setAttribute('viewBox', `0 0 ${numericW} ${numericH}`);
+        }
+
+        // Set dimensions of parent wrapper to match viewBox coordinates
+        const wrapper = document.getElementById('drawing-scale-wrapper');
+        if (wrapper) {
+          const viewBoxStr = inlineSvg.getAttribute('viewBox') || "0 0 500 500";
+          const parts = viewBoxStr.trim().split(/[\s,]+/);
+          if (parts.length === 4) {
+            wrapper.style.width = parts[2] + 'px';
+            wrapper.style.height = parts[3] + 'px';
+          } else {
+            wrapper.style.width = '500px';
+            wrapper.style.height = '500px';
+          }
+        }
+
         // Set fixed container size values for calculation
         inlineSvg.setAttribute('width', '100%');
         inlineSvg.setAttribute('height', '100%');
@@ -805,11 +828,14 @@
     // INTERACTIVE SVG CLASS INJECTORS
     function applyInteractiveCSSClassesToSVGPaths(svgNode, palette) {
       // Find all colorable segments
-      const allPaths = svgNode.querySelectorAll('path, circle, rect, polygon, ellipse, g');
+      const allPaths = svgNode.querySelectorAll('path, circle, rect, polygon, ellipse, polyline, line, g');
       
-      // Initially set all pathways events properties to none
+      let autoIdIndex = 1;
+      
+      // Initially set all pathways events properties to none, and assign automatic IDs to nodes that don't have them
       allPaths.forEach(node => {
-        if (node.tagName.toLowerCase() !== 'svg' && node.tagName.toLowerCase() !== 'style' && node.tagName.toLowerCase() !== 'g') {
+        const tag = node.tagName.toLowerCase();
+        if (tag !== 'svg' && tag !== 'style' && tag !== 'g' && tag !== 'defs' && tag !== 'metadata') {
           node.style.pointerEvents = "all";
           node.style.stroke = "#111827";
           node.style.strokeWidth = "2.5px";
@@ -817,6 +843,11 @@
           const currentFill = node.getAttribute('fill');
           if (!currentFill || currentFill === 'none') {
             node.setAttribute('fill', '#f3f4f6');
+          }
+
+          // Generate stable path IDs if missing
+          if (!node.getAttribute('id')) {
+            node.setAttribute('id', `path_auto_${autoIdIndex++}`);
           }
         }
       });
@@ -1498,15 +1529,26 @@
           const reader = new FileReader();
           reader.onload = (e) => {
             const content = e.target.result;
-            if (file.name.endsWith('.svg')) {
+            if (!content) {
+              resolve();
+              return;
+            }
+            const trimmed = content.trim();
+            const fileNameLower = file.name.toLowerCase();
+            
+            // Try to match both extensions (case-insensitive) and signature sniffing
+            if (fileNameLower.endsWith('.svg') || trimmed.startsWith('<?xml') || trimmed.includes('<svg')) {
               uploadedSvgMapText = content;
-            } else if (file.name.endsWith('.json')) {
+            } else if (fileNameLower.endsWith('.json') || trimmed.startsWith('{') || trimmed.startsWith('[')) {
               try {
-                uploadedJsonPalette = JSON.parse(content);
-              } catch (e) {
-                console.error("Local JSON uploaded parse failed");
+                uploadedJsonPalette = JSON.parse(trimmed);
+              } catch (err) {
+                console.error("Local JSON parse failed", err);
               }
             }
+            resolve();
+          };
+          reader.onerror = () => {
             resolve();
           };
           reader.readAsText(file);

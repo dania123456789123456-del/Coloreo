@@ -25,15 +25,12 @@ class MainActivity : ComponentActivity() {
 
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
 
-    // Native Android SAF File Picker to handle <input type="file"> uploads inside WebView
+    // Native Android File Picker via default Intent to support WebView uploads
     private val filePickerLauncher = registerForActivityResult(
-        ActivityResultContracts.GetMultipleContents()
-    ) { uris ->
-        if (uris == null || uris.isEmpty()) {
-            filePathCallback?.onReceiveValue(null)
-        } else {
-            filePathCallback?.onReceiveValue(uris.toTypedArray())
-        }
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val uris = WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data)
+        filePathCallback?.onReceiveValue(uris)
         filePathCallback = null
     }
 
@@ -79,9 +76,13 @@ class MainActivity : ComponentActivity() {
                                         this@MainActivity.filePathCallback = filePathCallback
 
                                         try {
-                                            // Using generic wildcard mime type ensures the file picker launches successfully
-                                            // and permits the user to select both SVG and JSON files from their storage
-                                            filePickerLauncher.launch("*/*")
+                                            val intent = fileChooserParams?.createIntent()
+                                            if (intent != null) {
+                                                filePickerLauncher.launch(intent)
+                                            } else {
+                                                filePathCallback?.onReceiveValue(null)
+                                                this@MainActivity.filePathCallback = null
+                                            }
                                         } catch (e: Exception) {
                                             filePathCallback?.onReceiveValue(null)
                                             this@MainActivity.filePathCallback = null
@@ -97,6 +98,8 @@ class MainActivity : ComponentActivity() {
                                     databaseEnabled = true
                                     allowFileAccess = true
                                     allowContentAccess = true
+                                    allowFileAccessFromFileURLs = true
+                                    allowUniversalAccessFromFileURLs = true
                                     loadWithOverviewMode = true
                                     useWideViewPort = true
                                     mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
