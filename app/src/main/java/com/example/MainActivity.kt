@@ -79,14 +79,9 @@ class MainActivity : ComponentActivity() {
                                         this@MainActivity.filePathCallback = filePathCallback
 
                                         try {
-                                            // Determine mime types
-                                            val acceptTypes = fileChooserParams?.acceptTypes
-                                            val mimeType = if (!acceptTypes.isNullOrEmpty() && acceptTypes[0].isNotEmpty()) {
-                                                acceptTypes[0]
-                                            } else {
-                                                "*/*"
-                                            }
-                                            filePickerLauncher.launch(mimeType)
+                                            // Using generic wildcard mime type ensures the file picker launches successfully
+                                            // and permits the user to select both SVG and JSON files from their storage
+                                            filePickerLauncher.launch("*/*")
                                         } catch (e: Exception) {
                                             filePathCallback?.onReceiveValue(null)
                                             this@MainActivity.filePathCallback = null
