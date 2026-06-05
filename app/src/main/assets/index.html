@@ -96,6 +96,19 @@
     .circle-glow {
       box-shadow: 0 0 12px currentColor;
     }
+
+    #svg-rendering-container, #svg-container {
+      background: #ffffff !important;
+      width: 100%;
+      min-height: 300px;
+    }
+
+    #svg-rendering-container svg, #svg-container svg {
+      display: block;
+      width: 100%;
+      height: 100%;
+      max-width: 100%;
+    }
   </style>
 </head>
 <body class="h-screen w-screen overflow-hidden flex flex-col">
@@ -750,12 +763,144 @@
       return null;
     }
 
+    // AUTOMATIC PALETTE AND STABLE IDS GENERATION FOR CUSTOM SVGS
+    function autoGeneratePaletteForImage(config) {
+      if (!config || !config.svg) return;
+
+      try {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(config.svg, 'image/svg+xml');
+        const svgEl = doc.querySelector('svg');
+        if (!svgEl) return;
+
+        const allPaths = svgEl.querySelectorAll('path, circle, rect, polygon, ellipse, polyline, line');
+        if (allPaths.length === 0) return;
+
+        // Ensure every path has a unique stable ID
+        let autoIdIndex = 1;
+        allPaths.forEach(node => {
+          if (!node.getAttribute('id')) {
+            node.setAttribute('id', `path_auto_${autoIdIndex++}`);
+          }
+        });
+
+        // Save updated inline SVG with stable IDs back to config
+        config.svg = svgEl.outerHTML;
+
+        // Group paths to build an automatic color palette
+        const beautyPaletteColors = [
+          { label: "Rosado", hex: "#f43f5e" },
+          { label: "Naranja", hex: "#f97316" },
+          { label: "Ámbar", hex: "#f59e0b" },
+          { label: "Esmeralda", hex: "#10b981" },
+          { label: "Cian", hex: "#06b6d4" },
+          { label: "Índigo", hex: "#6366f1" },
+          { label: "Violeta", hex: "#8b5cf6" },
+          { label: "Fucsia", hex: "#d946ef" }
+        ];
+
+        let generatedPalette = [];
+        let originalColorsMap = {}; // hex/color -> array of pathIds
+
+        allPaths.forEach(node => {
+          const id = node.getAttribute('id');
+          let fill = node.getAttribute('fill');
+          if (fill) fill = fill.trim().toLowerCase();
+
+          const isDefaultColor = !fill || fill === 'none' || fill === '#ffffff' || fill === '#f3f4f6' || fill === '#f5f5f5' || fill === '#fcfcfc';
+
+          if (!isDefaultColor) {
+            if (!originalColorsMap[fill]) {
+              originalColorsMap[fill] = [];
+            }
+            originalColorsMap[fill].push(id);
+          }
+        });
+
+        const originalColorKeys = Object.keys(originalColorsMap);
+        if (originalColorKeys.length >= 2) {
+          // Case A: SVG has predefined colors. Map them to Paint-by-Numbers categories!
+          let colorNum = 1;
+          originalColorKeys.forEach(hex => {
+            generatedPalette.push({
+              colorId: `color_auto_${colorNum}`,
+              number: colorNum,
+              label: `Color ${colorNum}`,
+              suggestedHex: hex,
+              alternativeColors: [hex, "#ffffff", "#000000", "#6366f1"],
+              zones: originalColorsMap[hex]
+            });
+            colorNum++;
+          });
+
+          // Handset neutral background/stray paths
+          let strayPaths = [];
+          allPaths.forEach(node => {
+            const id = node.getAttribute('id');
+            let fill = node.getAttribute('fill');
+            if (fill) fill = fill.trim().toLowerCase();
+            const isDefaultColor = !fill || fill === 'none' || fill === '#ffffff' || fill === '#f3f4f6' || fill === '#f5f5f5' || fill === '#fcfcfc';
+            if (isDefaultColor) {
+              strayPaths.push(id);
+            }
+          });
+
+          if (strayPaths.length > 0) {
+            generatedPalette.push({
+              colorId: `color_auto_${colorNum}`,
+              number: colorNum,
+              label: "Fondo",
+              suggestedHex: "#f3f4f6",
+              alternativeColors: ["#ffffff", "#e2e8f0", "#94a3b8", "#1e293b"],
+              zones: strayPaths
+            });
+          }
+        } else {
+          // Case B: SVG is empty/flat/grayscale line art. Distribute all paths evenly amongst 8 rich categories!
+          const pathIds = Array.from(allPaths).map(node => node.getAttribute('id'));
+          const numColors = Math.min(beautyPaletteColors.length, pathIds.length);
+
+          for (let i = 0; i < numColors; i++) {
+            generatedPalette.push({
+              colorId: `color_auto_${i + 1}`,
+              number: i + 1,
+              label: beautyPaletteColors[i].label,
+              suggestedHex: beautyPaletteColors[i].hex,
+              alternativeColors: [beautyPaletteColors[i].hex, "#ffffff", "#0f172a", "#cbd5e1"],
+              zones: []
+            });
+          }
+
+          pathIds.forEach((id, idx) => {
+            const targetColorIndex = idx % numColors;
+            generatedPalette[targetColorIndex].zones.push(id);
+          });
+        }
+
+        config.palette = {
+          imageId: config.palette?.imageId || `auto_${Date.now()}`,
+          imageName: config.name || "Dibujo Cargado",
+          palette: generatedPalette
+        };
+
+        // Persist the auto-generated config immediately to storage
+        persistStateToLocalStorage();
+      } catch (err) {
+        console.error("Critical error inside autoGeneratePaletteForImage:", err);
+      }
+    }
+
 
     // GRAPHICS LOAD CONTROLLER
     function loadActiveImageInWorkspace(imageId) {
       currentImageId = imageId;
       const config = getActiveDrawingConfig(imageId);
       if (!config) return;
+
+      // Auto-generate colors palette dynamically if empty or missing
+      if (!config.palette || !config.palette.palette || config.palette.palette.length === 0) {
+        autoGeneratePaletteForImage(config);
+      }
 
       // Resets
       activeColorIndex = -1;
@@ -1565,28 +1710,22 @@
         let resultingPalette = uploadedJsonPalette;
 
         if (!resultingPalette) {
-          // Launch Zone Editor inside App sidebar directly to label it!
-          showFloatingToast("Cargado SVG sin un JSON. ¡Entrando al Editor de Zonas para configurarlo!");
-          
+          // No companion palette uploaded: load SVG with empty palette placeholder (will auto-generate colors)
           cachedImages[customImageId] = {
-            name: "Dibujo Editado",
+            name: "Dibujo Cargado",
             svg: uploadedSvgMapText,
             palette: {
               imageId: customImageId,
-              imageName: "Dibujo Editado",
+              imageName: "Dibujo Cargado",
               palette: []
             }
           };
 
-          // Setup generated details
-          generatedPaletteAccumulator = { imageId: customImageId, imageName: "Dibujo Editado", palette: [] };
-
           persistStateToLocalStorage();
           loadActiveImageInWorkspace(customImageId);
           populateDrawingsGalleryGrid();
-          toggleSidebar(true);
-          switchSidebarTab('editor');
-          toggleActiveZoneEditorMode(true);
+          toggleSidebar(false);
+          showFloatingToast("¡Dibujo cargado! Paleta de colores auto-generada.");
           return;
         }
 
